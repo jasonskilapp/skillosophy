@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/*
+  Discova design tokens. The dashboard look in the reference screenshots:
+  near-white background, white cards with hairline borders, a green primary
+  accent, and strength colors (green / amber / red / gray) for skill bars.
+*/
+:root {
+  --background: #f7f8fa;
+  --surface: #ffffff;
+  --foreground: #1a2231;
+  --muted: #687387;
+  --border: #e7eaf0;
+  --border-strong: #d7dce5;
+
+  --primary: #1f9d76;          /* expert / brand green */
+  --primary-soft: #e6f5ef;
+  --proficient: #e0972a;       /* amber */
+  --proficient-soft: #fbf2e1;
+  --competent: #d65f4a;        /* terracotta */
+  --competent-soft: #fbebe7;
+  --foundational: #8a93a3;     /* gray */
+  --foundational-soft: #eef0f4;
+
+  --accent-blue: #2563eb;
+  --accent-blue-soft: #e7eefe;
+  --track: #e9ecf2;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-proficient: var(--proficient);
+  --color-proficient-soft: var(--proficient-soft);
+  --color-competent: var(--competent);
+  --color-competent-soft: var(--competent-soft);
+  --color-foundational: var(--foundational);
+  --color-foundational-soft: var(--foundational-soft);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-soft: var(--accent-blue-soft);
+  --color-track: var(--track);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+/* Thin scrollbar that matches the muted palette */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}

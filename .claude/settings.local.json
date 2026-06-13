@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/light/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/722b7089-5d61-486d-881a-445310a1306c/f2a4277b-3eae-4969-9468-81a0b1c4c9f8/skills/docx/**)",
+      "Bash(extract-text \"C:\\\\Users\\\\light\\\\Downloads\\\\Resume_Career_Prompts_Canada_v7 \\(2\\).docx\")",
+      "Bash(pandoc \"C:\\\\Users\\\\light\\\\Downloads\\\\Resume_Career_Prompts_Canada_v7 \\(2\\).docx\" -t markdown)",
+      "Read(//tmp/**)",
+      "Bash(/c/Users/light/AppData/Local/Programs/Python/Python313/python -c ' *)",
+      "Bash(npm --version)",
+      "PowerShell(node --version; npm --version; \\(Get-Command node\\).Source)",
+      "PowerShell(winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements --silent -e)",
+      "PowerShell($node = \"$env:ProgramFiles\\\\nodejs\\\\node.exe\"; & $node --version; & \"$env:ProgramFiles\\\\nodejs\\\\npm.cmd\" --version)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npm install *)",
+      "Bash(node -e \"console.log\\(require\\('lucide-react/package.json'\\).version\\)\")",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

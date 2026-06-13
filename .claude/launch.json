@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "discova",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "scripts\\dev-server.cmd"],
+      "port": 3000
+    }
+  ]
+}
