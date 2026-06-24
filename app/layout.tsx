@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Discova — Candidate Intelligence for Recruiters",
+  title: "Skillosophy — Career & Credential Intelligence",
   description:
-    "Job seekers upload resumes ahead of a meeting; recruiters get an instant, structured candidate profile.",
+    "Clients upload a resume ahead of an appointment; advisors and caseworkers get an instant, structured, evidence-based profile to curate.",
 };
 
 export default function RootLayout({

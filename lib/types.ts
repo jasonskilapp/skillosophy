@@ -1,5 +1,5 @@
 /**
- * The shared data contract for Discova.
+ * The shared data contract for Skillosophy.
  *
  * `CandidateReport` is the structured JSON the Anthropic pipeline produces from
  * a resume (an adaptation of the v7 "Canadian Resume Analysis" prompt). The
@@ -7,7 +7,53 @@
  * JSON schema and these types must stay in sync.
  */
 
+/**
+ * Account types in the multi-tenant model.
+ *  - platform_admin: Skillosophy staff, sits above all organizations
+ *  - org_member: belongs to one organization, with an org-level role
+ *  - seeker: an external candidate (student / client), not an org member
+ */
+export type AccountType = "platform_admin" | "org_member" | "seeker";
+
+/** A member's role within their organization. */
+export type OrgRole = "org_admin" | "member";
+
+/** Organization flavour — switches intake questions, labels, and output format. */
+export type OrgType = "campus" | "newcomer";
+
+/** Legacy alias kept only where a flat role is still convenient. */
 export type Role = "admin" | "recruiter" | "seeker";
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  /** Immutable human-readable customer handle, e.g. "SK-0001". */
+  customerCode: string;
+  type: OrgType;
+  /** Seats from the signed contract; team invites are blocked at this cap. */
+  seatLimit: number;
+  status: "active" | "suspended";
+  createdAt: string;
+}
+
+/** Organization plus usage counts, for the platform console. */
+export interface OrgSummary extends Organization {
+  memberCount: number;
+  /** Active members + outstanding (pending) team invites — counts against seatLimit. */
+  seatsUsed: number;
+  candidateCount: number;
+}
+
+/** A person on an organization's team (admin or member). */
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  orgRole: OrgRole;
+  status: "active" | "invited";
+  createdAt: string;
+}
 
 export type CareerStage =
   | "Early Career"
@@ -111,25 +157,19 @@ export interface CandidateReport {
   estimatesNote?: string;
 }
 
-/** A row in the recruiter's candidate list (tile). */
+/** A row in a member's candidate list (tile). Always scoped to one organization. */
 export interface CandidateSummary {
   id: string;
   name: string;
   /** ISO timestamp the resume was uploaded. */
   uploadedAt: string;
-  /** ISO date of the meeting this upload is for, if set on the invite. */
+  /** ISO date of the meeting/appointment this upload is for, if set on the invite. */
   meetingDate?: string | null;
   status: ReportStatus;
   /** Target-role headline, shown on the tile once analysis is done. */
   headline?: string | null;
-  recruiterName?: string | null;
-}
-
-/** A recruiter account as seen by the admin. */
-export interface RecruiterAccount {
-  id: string;
-  name: string;
-  email: string;
-  createdAt: string;
-  candidateCount?: number;
+  /** The organization that owns this candidate record. */
+  organizationId?: string | null;
+  /** Name of the member (advisor/caseworker/recruiter) who owns this candidate. */
+  ownerName?: string | null;
 }

@@ -2,20 +2,22 @@ import { redirect } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import CandidateTile from "@/components/CandidateTile";
 import InviteCreator from "@/components/InviteCreator";
-import { getSession } from "@/lib/auth";
-import { listCandidatesForRecruiter } from "@/lib/data";
+import { getSession, orgLabels } from "@/lib/auth";
+import { listCandidatesForSession } from "@/lib/data";
 import { dayKey, dayLabel } from "@/lib/format";
 import type { CandidateSummary } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function RecruiterDashboard() {
+export default async function DashboardPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "recruiter") redirect("/");
+  if (session.accountType !== "org_member") redirect("/");
 
-  const candidates = await listCandidatesForRecruiter(session.userId);
+  const labels = orgLabels(session.orgType);
+  const candidates = await listCandidatesForSession(session);
   const groups = groupByDay(candidates);
+  const scope = session.orgRole === "org_admin" ? "your organization" : "you";
 
   return (
     <>
@@ -23,22 +25,22 @@ export default async function RecruiterDashboard() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Candidates</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {labels.candidates}
+            </h1>
             <p className="mt-1 text-sm text-muted">
-              Resumes uploaded for your meetings, newest first.
+              Resumes uploaded for {scope}, newest first.
             </p>
           </div>
-          <p className="text-sm text-muted">
-            {candidates.length} total
-          </p>
+          <p className="text-sm text-muted">{candidates.length} total</p>
         </div>
 
         <div className="mb-8">
-          <InviteCreator />
+          <InviteCreator candidateLabel={labels.candidate} />
         </div>
 
         {groups.length === 0 ? (
-          <EmptyState />
+          <EmptyState candidateLabel={labels.candidate.toLowerCase()} />
         ) : (
           <div className="space-y-8">
             {groups.map((group) => (
@@ -79,13 +81,13 @@ function groupByDay(candidates: CandidateSummary[]) {
     }));
 }
 
-function EmptyState() {
+function EmptyState({ candidateLabel }: { candidateLabel: string }) {
   return (
     <div className="rounded-xl border border-dashed border-border-strong bg-surface p-10 text-center">
       <p className="font-medium">No resumes yet</p>
       <p className="mt-1 text-sm text-muted">
-        Create an invite link above and send it to a candidate. Their profile
-        appears here once they upload a resume.
+        Create an invite link above and send it to a {candidateLabel}. Their
+        profile appears here once they upload a resume.
       </p>
     </div>
   );

@@ -3,22 +3,50 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { appMode, RESUME_BUCKET } from "@/lib/config";
-import { DEMO_COOKIE, getSession, homePathForRole } from "@/lib/auth";
+import {
+  DEMO_COOKIE,
+  type DemoRole,
+  getSession,
+  homePathForSession,
+} from "@/lib/auth";
+import { getSeatUsage, suggestCustomerCode } from "@/lib/data";
 import {
   createSupabaseAdminClient,
   createSupabaseServerClient,
 } from "@/lib/supabase/server";
 import { runAnalysis } from "@/lib/pipeline";
-import type { Role } from "@/lib/types";
+import type { OrgRole, OrgType } from "@/lib/types";
 
-type ActionResult = { error?: string; ok?: boolean; message?: string };
+type ActionResult = {
+  error?: string;
+  ok?: boolean;
+  message?: string;
+  token?: string;
+};
+
+function makeToken(): string {
+  return (
+    Math.random().toString(36).slice(2) +
+    Math.random().toString(36).slice(2) +
+    Date.now().toString(36)
+  );
+}
+
+function slugify(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "")
+      .slice(0, 40) || `org-${Date.now().toString(36)}`
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Authentication
 // ---------------------------------------------------------------------------
 
-/** Mock-mode quick login as a demo role. */
-export async function demoLogin(role: Role): Promise<void> {
+export async function demoLogin(role: DemoRole): Promise<void> {
   const store = await cookies();
   store.set(DEMO_COOKIE, role, {
     httpOnly: true,
@@ -26,10 +54,10 @@ export async function demoLogin(role: Role): Promise<void> {
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
-  redirect(homePathForRole(role));
+  const session = (await getSession())!;
+  redirect(homePathForSession(session));
 }
 
-/** Live-mode email/password sign-in. */
 export async function signIn(
   _prev: ActionResult,
   formData: FormData,
@@ -43,13 +71,12 @@ export async function signIn(
   if (error) return { error: error.message };
 
   const session = await getSession();
-  redirect(session ? homePathForRole(session.role) : "/");
+  redirect(session ? homePathForSession(session) : "/");
 }
 
 export async function signOut(): Promise<void> {
   if (appMode === "mock") {
-    const store = await cookies();
-    store.delete(DEMO_COOKIE);
+    (await cookies()).delete(DEMO_COOKIE);
   } else {
     const supabase = await createSupabaseServerClient();
     await supabase.auth.signOut();
@@ -58,18 +85,187 @@ export async function signOut(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Admin: create recruiter accounts
+// Platform admin: create an organization + its first admin (contract-gated)
 // ---------------------------------------------------------------------------
 
-export async function createRecruiter(
+export async function createOrganization(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
   const session = await getSession();
-  if (!session || session.role !== "admin") {
+  if (!session || session.accountType !== "platform_admin") {
     return { error: "Not authorized." };
   }
 
+  const name = String(formData.get("name") ?? "").trim();
+  const type = String(formData.get("type") ?? "campus") as OrgType;
+  const seatLimit = parseInt(String(formData.get("seatLimit") ?? ""), 10);
+  const adminName = String(formData.get("adminName") ?? "").trim();
+  const adminEmail = String(formData.get("adminEmail") ?? "").trim();
+  const providedCode = String(formData.get("customerCode") ?? "")
+    .trim()
+    .toUpperCase();
+
+  if (!name) return { error: "Organization name is required." };
+  if (!adminName || !adminEmail) {
+    return { error: "The first admin's name and email are required." };
+  }
+  if (!Number.isFinite(seatLimit) || seatLimit < 1) {
+    return { error: "Seat limit must be a positive number." };
+  }
+  if (type !== "campus" && type !== "newcomer") {
+    return { error: "Invalid organization type." };
+  }
+  if (providedCode && !/^[A-Z0-9-]{2,32}$/.test(providedCode)) {
+    return { error: "Customer code may use letters, numbers, and dashes only." };
+  }
+
+  const token = makeToken();
+  const customerCode = providedCode || (await suggestCustomerCode());
+
+  if (appMode === "mock") {
+    return {
+      ok: true,
+      token,
+      message: `Demo mode: "${name}" (${customerCode}) would be created and ${adminName} invited as admin (not persisted).`,
+    };
+  }
+
+  const admin = createSupabaseAdminClient();
+
+  // Insert the org. If the auto-suggested code lost a race, retry once with a
+  // fresh suggestion; a manually-entered duplicate is reported to the admin.
+  let org: { id: string } | null = null;
+  let code = customerCode;
+  for (let attempt = 0; attempt < 2 && !org; attempt++) {
+    const { data, error } = await admin
+      .from("organizations")
+      .insert({
+        name,
+        slug: slugify(name),
+        customer_code: code,
+        type,
+        seat_limit: seatLimit,
+        status: "active",
+        created_by: session.userId,
+      })
+      .select("id")
+      .single();
+
+    if (data) {
+      org = data;
+      break;
+    }
+    const duplicateCode =
+      error?.code === "23505" || /duplicate|already exists/i.test(error?.message ?? "");
+    if (duplicateCode && /customer_code/i.test(error?.message ?? "")) {
+      if (providedCode) {
+        return { error: `Customer code ${code} is already in use.` };
+      }
+      code = await suggestCustomerCode(); // auto: try the next one
+      continue;
+    }
+    return { error: error?.message ?? "Could not create organization." };
+  }
+  if (!org) {
+    return { error: "Could not assign a unique customer code. Try again." };
+  }
+
+  const expires = new Date();
+  expires.setDate(expires.getDate() + 14);
+  const { error: inviteError } = await admin.from("team_invites").insert({
+    organization_id: org.id,
+    token,
+    email: adminEmail,
+    name: adminName,
+    org_role: "org_admin",
+    invited_by: session.userId,
+    status: "pending",
+    expires_at: expires.toISOString(),
+  });
+  if (inviteError) return { error: inviteError.message };
+
+  return {
+    ok: true,
+    token,
+    message: `"${name}" created as ${code}. Send the join link to ${adminName}.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Org admin: invite a teammate (seat-capped)
+// ---------------------------------------------------------------------------
+
+export async function createTeamInvite(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (
+    !session ||
+    session.accountType !== "org_member" ||
+    session.orgRole !== "org_admin" ||
+    !session.organizationId
+  ) {
+    return { error: "Not authorized." };
+  }
+
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const orgRole = String(formData.get("orgRole") ?? "member") as OrgRole;
+  if (!email) return { error: "An email is required." };
+
+  const token = makeToken();
+
+  if (appMode === "mock") {
+    return {
+      ok: true,
+      token,
+      message: "Demo invite link generated (not persisted without Supabase).",
+    };
+  }
+
+  // Seat enforcement: active members + pending invites must stay under the cap.
+  const admin = createSupabaseAdminClient();
+  const { data: org } = await admin
+    .from("organizations")
+    .select("seat_limit")
+    .eq("id", session.organizationId)
+    .single();
+  const seatLimit = org?.seat_limit ?? 0;
+  const usage = await getSeatUsage(session.organizationId, seatLimit);
+  if (usage.full) {
+    return {
+      error: `All ${seatLimit} seats are in use. Contact Skillosophy to add more before inviting another teammate.`,
+    };
+  }
+
+  const expires = new Date();
+  expires.setDate(expires.getDate() + 14);
+  const { error } = await admin.from("team_invites").insert({
+    organization_id: session.organizationId,
+    token,
+    email,
+    name: name || null,
+    org_role: orgRole === "org_admin" ? "org_admin" : "member",
+    invited_by: session.userId,
+    status: "pending",
+    expires_at: expires.toISOString(),
+  });
+  if (error) return { error: error.message };
+
+  return { ok: true, token, message: "Invite link generated." };
+}
+
+// ---------------------------------------------------------------------------
+// Accept a team invite (set password, join the org)
+// ---------------------------------------------------------------------------
+
+export async function acceptTeamInvite(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const token = String(formData.get("token") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
@@ -81,51 +277,72 @@ export async function createRecruiter(
   }
 
   if (appMode === "mock") {
-    return {
-      ok: true,
-      message: `Demo mode: recruiter "${name}" would be created (not persisted without Supabase).`,
-    };
+    const store = await cookies();
+    store.set(DEMO_COOKIE, "org_admin", {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+    redirect("/dashboard");
   }
 
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { full_name: name },
-  });
-  if (error) return { error: error.message };
+  const { data: invite } = await admin
+    .from("team_invites")
+    .select("id, organization_id, org_role, status, expires_at")
+    .eq("token", token)
+    .maybeSingle();
+  if (!invite || invite.status !== "pending") {
+    return { error: "This invite is invalid or has already been used." };
+  }
+  if (invite.expires_at && new Date(invite.expires_at).getTime() < Date.now()) {
+    return { error: "This invite has expired. Ask for a new one." };
+  }
+
+  const { data: created, error: signUpError } =
+    await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: name },
+    });
+  if (signUpError || !created.user) {
+    return { error: signUpError?.message ?? "Could not create the account." };
+  }
 
   const { error: profileError } = await admin.from("profiles").insert({
-    id: data.user!.id,
-    role: "recruiter",
+    id: created.user.id,
+    account_type: "org_member",
+    organization_id: invite.organization_id,
+    org_role: invite.org_role,
+    role: "recruiter", // legacy column
     full_name: name,
     email,
   });
   if (profileError) return { error: profileError.message };
 
-  return { ok: true, message: `Recruiter ${name} created.` };
+  await admin
+    .from("team_invites")
+    .update({ status: "accepted" })
+    .eq("id", invite.id);
+
+  // Sign the new member in.
+  const supabase = await createSupabaseServerClient();
+  await supabase.auth.signInWithPassword({ email, password });
+  redirect("/dashboard");
 }
 
 // ---------------------------------------------------------------------------
-// Recruiter: create an invite (shareable link)
+// Member: create a candidate invite (org-stamped)
 // ---------------------------------------------------------------------------
-
-function makeToken(): string {
-  // URL-safe random token.
-  return (
-    Math.random().toString(36).slice(2) +
-    Math.random().toString(36).slice(2) +
-    Date.now().toString(36)
-  );
-}
 
 export async function createInvite(
   _prev: ActionResult,
   formData: FormData,
-): Promise<ActionResult & { token?: string }> {
+): Promise<ActionResult> {
   const session = await getSession();
-  if (!session || session.role !== "recruiter") {
+  if (!session || session.accountType !== "org_member" || !session.organizationId) {
     return { error: "Not authorized." };
   }
 
@@ -147,8 +364,8 @@ export async function createInvite(
   const admin = createSupabaseAdminClient();
   const expires = new Date();
   expires.setDate(expires.getDate() + 7);
-
   const { error } = await admin.from("invites").insert({
+    organization_id: session.organizationId,
     token,
     recruiter_id: session.userId,
     recruiter_name: session.name,
@@ -164,7 +381,7 @@ export async function createInvite(
 }
 
 // ---------------------------------------------------------------------------
-// Seeker: accept invite + create account
+// Seeker: accept a candidate invite + create account
 // ---------------------------------------------------------------------------
 
 export async function acceptInvite(
@@ -203,12 +420,11 @@ export async function acceptInvite(
   const admin = createSupabaseAdminClient();
   await admin.from("profiles").insert({
     id: data.user.id,
-    role: "seeker",
+    account_type: "seeker",
+    role: "seeker", // legacy column
     full_name: name,
     email,
   });
-
-  // Link the invite to this seeker.
   await admin
     .from("invites")
     .update({ status: "accepted", seeker_id: data.user.id })
@@ -218,7 +434,7 @@ export async function acceptInvite(
 }
 
 // ---------------------------------------------------------------------------
-// Seeker: upload a resume and kick off analysis
+// Seeker: upload a resume and kick off analysis (org-stamped)
 // ---------------------------------------------------------------------------
 
 export async function submitResume(
@@ -226,7 +442,7 @@ export async function submitResume(
   formData: FormData,
 ): Promise<ActionResult & { candidateId?: string }> {
   const session = await getSession();
-  if (!session || session.role !== "seeker") {
+  if (!session || session.accountType !== "seeker") {
     return { error: "Not authorized." };
   }
 
@@ -243,16 +459,16 @@ export async function submitResume(
     return {
       ok: true,
       message:
-        "Demo mode: in a live setup your resume would be analyzed and shared with the recruiter. Connect Supabase and an Anthropic key to enable real analysis.",
+        "Demo mode: in a live setup your resume would be analyzed and shared with your advisor. Connect Supabase and an Anthropic key to enable real analysis.",
     };
   }
 
   const admin = createSupabaseAdminClient();
-
-  // Find the invite that brought this seeker in, for recruiter + meeting context.
   const { data: invite } = await admin
     .from("invites")
-    .select("id, recruiter_id, recruiter_name, meeting_date, candidate_name")
+    .select(
+      "id, organization_id, recruiter_id, recruiter_name, meeting_date, candidate_name",
+    )
     .eq("seeker_id", session.userId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -271,6 +487,7 @@ export async function submitResume(
   const { data: row, error: insertError } = await admin
     .from("candidates")
     .insert({
+      organization_id: invite?.organization_id ?? null,
       recruiter_id: invite?.recruiter_id ?? null,
       recruiter_name: invite?.recruiter_name ?? null,
       seeker_id: session.userId,
@@ -288,7 +505,6 @@ export async function submitResume(
     return { error: insertError?.message ?? "Could not save the upload." };
   }
 
-  // Kick off analysis without blocking the response; the page polls for status.
   void runAnalysis(row.id).catch(() => {});
 
   return {

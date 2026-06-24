@@ -78,7 +78,7 @@ export default function CandidateTile({
 
   if (!clickable) return inner;
   return (
-    <Link href={`/recruiter/candidate/${candidate.id}`} className="block h-full">
+    <Link href={`/dashboard/candidate/${candidate.id}`} className="block h-full">
       {inner}
     </Link>
   );

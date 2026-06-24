@@ -17,7 +17,7 @@ export default async function InvitePage({
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-lg font-bold text-white">
-            D
+            S
           </span>
           <h1 className="mt-4 text-2xl font-bold tracking-tight">
             You&apos;re invited

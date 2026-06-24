@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function SeekerUploadPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "seeker") redirect("/");
+  if (session.accountType !== "seeker") redirect("/");
 
   const existing =
     appMode === "live" ? await getSeekerCandidate(session.userId) : null;
@@ -26,8 +26,8 @@ export default async function SeekerUploadPage() {
             Upload your resume
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Your recruiter will review a structured profile built from your
-            resume ahead of your meeting
+            Your advisor will review a structured profile built from your resume
+            ahead of your appointment
             {existing?.meetingDate
               ? ` on ${formatDate(existing.meetingDate)}`
               : ""}
@@ -43,7 +43,7 @@ export default async function SeekerUploadPage() {
             <p className="font-semibold">Your profile is ready</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-muted">
               You&apos;ve uploaded a resume and it has been analyzed and shared
-              with your recruiter. You can upload a new version below if needed.
+              with your advisor. You can upload a new version below if needed.
             </p>
             <div className="mt-5 text-left">
               <ResumeUploader mock={appMode === "mock"} />
@@ -54,7 +54,8 @@ export default async function SeekerUploadPage() {
         )}
 
         <p className="mt-6 text-center text-xs text-muted">
-          Your resume is shared only with the recruiter who invited you.
+          Your resume is shared only with the advisor who invited you, and the
+          file is deleted right after your profile is generated.
         </p>
       </main>
     </>

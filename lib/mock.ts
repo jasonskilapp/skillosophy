@@ -1,4 +1,9 @@
-import type { CandidateReport, CandidateSummary, RecruiterAccount } from "./types";
+import type {
+  CandidateReport,
+  CandidateSummary,
+  OrgSummary,
+  TeamMember,
+} from "./types";
 
 /**
  * Seed data used when Supabase is not configured (mock mode) and to seed the
@@ -417,6 +422,9 @@ function isoDaysAhead(days: number): string {
   return d.toISOString();
 }
 
+/** The demo organization id all mock candidates/team belong to. */
+export const MOCK_ORG_ID = "org-uoft-career";
+
 export const MOCK_CANDIDATES: CandidateSummary[] = [
   {
     id: "jason-hall",
@@ -425,7 +433,8 @@ export const MOCK_CANDIDATES: CandidateSummary[] = [
     meetingDate: isoDaysAhead(2),
     status: "done",
     headline: jasonHall.contact.headline,
-    recruiterName: "Dana Whitfield",
+    organizationId: MOCK_ORG_ID,
+    ownerName: "Dana Whitfield",
   },
   {
     id: "priya-nair",
@@ -434,7 +443,8 @@ export const MOCK_CANDIDATES: CandidateSummary[] = [
     meetingDate: isoDaysAhead(1),
     status: "done",
     headline: priyaNair.contact.headline,
-    recruiterName: "Dana Whitfield",
+    organizationId: MOCK_ORG_ID,
+    ownerName: "Omar Reyes",
   },
   {
     id: "marcus-chen",
@@ -443,7 +453,8 @@ export const MOCK_CANDIDATES: CandidateSummary[] = [
     meetingDate: isoDaysAhead(3),
     status: "done",
     headline: marcusChen.contact.headline,
-    recruiterName: "Dana Whitfield",
+    organizationId: MOCK_ORG_ID,
+    ownerName: "Dana Whitfield",
   },
   {
     id: "pending-sample",
@@ -452,23 +463,63 @@ export const MOCK_CANDIDATES: CandidateSummary[] = [
     meetingDate: isoDaysAhead(4),
     status: "processing",
     headline: null,
-    recruiterName: "Dana Whitfield",
+    organizationId: MOCK_ORG_ID,
+    ownerName: "Dana Whitfield",
   },
 ];
 
-export const MOCK_RECRUITERS: RecruiterAccount[] = [
+export const MOCK_ORGS: OrgSummary[] = [
   {
-    id: "rec-dana",
-    name: "Dana Whitfield",
-    email: "dana@discova-demo.ca",
-    createdAt: isoDaysAgo(30),
+    id: MOCK_ORG_ID,
+    name: "UofT Career Centre",
+    slug: "uoft-career",
+    customerCode: "SK-0001",
+    type: "campus",
+    seatLimit: 8,
+    status: "active",
+    createdAt: isoDaysAgo(40),
+    memberCount: 2,
+    seatsUsed: 3,
     candidateCount: 4,
   },
   {
-    id: "rec-omar",
-    name: "Omar Reyes",
-    email: "omar@discova-demo.ca",
-    createdAt: isoDaysAgo(12),
+    id: "org-newcomer-bridge",
+    name: "Bridge Settlement Services",
+    slug: "bridge-settlement",
+    customerCode: "SK-0002",
+    type: "newcomer",
+    seatLimit: 5,
+    status: "active",
+    createdAt: isoDaysAgo(18),
+    memberCount: 1,
+    seatsUsed: 1,
     candidateCount: 0,
+  },
+];
+
+export const MOCK_TEAM: TeamMember[] = [
+  {
+    id: "demo-org-admin",
+    name: "Dana Whitfield",
+    email: "dana@skillosophy-demo.ca",
+    orgRole: "org_admin",
+    status: "active",
+    createdAt: isoDaysAgo(40),
+  },
+  {
+    id: "demo-member",
+    name: "Omar Reyes",
+    email: "omar@skillosophy-demo.ca",
+    orgRole: "member",
+    status: "active",
+    createdAt: isoDaysAgo(12),
+  },
+  {
+    id: "invite-pending",
+    name: "Sara Kim",
+    email: "sara@skillosophy-demo.ca",
+    orgRole: "member",
+    status: "invited",
+    createdAt: isoDaysAgo(2),
   },
 ];

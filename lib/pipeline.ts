@@ -46,6 +46,18 @@ export async function runAnalysis(candidateId: string): Promise<void> {
         analyzed_at: new Date().toISOString(),
       })
       .eq("id", candidateId);
+
+    // Privacy requirement: delete the uploaded resume file immediately after
+    // analysis. Only the de-identified structured report is retained.
+    if (row.file_path) {
+      await supabase.storage
+        .from(RESUME_BUCKET)
+        .remove([row.file_path as string]);
+      await supabase
+        .from("candidates")
+        .update({ file_path: null })
+        .eq("id", candidateId);
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Analysis failed.";
     await supabase

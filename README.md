@@ -1,4 +1,4 @@
-# Discova
+# Skillosophy
 
 Job seekers upload their resume ahead of a meeting; recruiters get an instant,
 structured candidate profile (skills with proven strength, industry fit, target

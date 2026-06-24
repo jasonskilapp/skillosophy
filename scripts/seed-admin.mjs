@@ -42,7 +42,8 @@ if (error) {
 
 const { error: profileError } = await supabase.from("profiles").insert({
   id: data.user.id,
-  role: "admin",
+  account_type: "platform_admin",
+  role: "admin", // legacy column, kept for compatibility
   full_name: name,
   email,
 });
