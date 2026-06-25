@@ -16,7 +16,7 @@ export default function ResetPasswordPage() {
 
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "https://www.skillosophyapp.com/update-password",
+      redirectTo: "https://www.skillosophyapp.com/auth/callback?next=/update-password",
     });
 
     if (error) {
