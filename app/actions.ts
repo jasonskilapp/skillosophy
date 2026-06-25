@@ -39,7 +39,7 @@ export async function resetPassword(
   const email = formData.get("email") as string;
   if (!email) return { error: "Email is required." };
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: "https://www.skillosophyapp.com/update-password",
   });
@@ -56,7 +56,7 @@ export async function updatePassword(
   if (!password || password.length < 8)
     return { error: "Password must be at least 8 characters." };
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.updateUser({ password });
 
   if (error) return { error: error.message };
