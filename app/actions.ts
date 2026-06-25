@@ -32,6 +32,37 @@ function makeToken(): string {
   );
 }
 
+export async function resetPassword(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const email = formData.get("email") as string;
+  if (!email) return { error: "Email is required." };
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: "https://www.skillosophyapp.com/update-password",
+  });
+
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+export async function updatePassword(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const password = formData.get("password") as string;
+  if (!password || password.length < 8)
+    return { error: "Password must be at least 8 characters." };
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) return { error: error.message };
+  redirect("/login");
+}
+
 function slugify(name: string): string {
   return (
     name

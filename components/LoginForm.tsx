@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { signIn } from "@/app/actions";
 
 export default function LoginForm() {
@@ -32,6 +33,11 @@ export default function LoginForm() {
           required
           className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-primary"
         />
+      </div>
+      <div className="text-right -mt-2">
+        <Link href="/reset-password" className="text-xs text-muted hover:text-primary transition-colors">
+          Forgot password?
+        </Link>
       </div>
       {state.error && <p className="text-sm text-competent">{state.error}</p>}
       <button
