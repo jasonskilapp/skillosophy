@@ -319,6 +319,7 @@ export async function addOrgNote(
     content,
     created_by: session.userId,
     created_by_name: session.name,
+    created_by_email: session.email,
   });
 
   if (error) return { error: error.message };

@@ -129,7 +129,7 @@ export async function listOrgNotes(orgId: string): Promise<OrgNote[]> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("org_notes")
-    .select("id, organization_id, content, created_by_name, created_at")
+    .select("id, organization_id, content, created_by_name, created_by_email, created_at")
     .eq("organization_id", orgId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
@@ -138,6 +138,7 @@ export async function listOrgNotes(orgId: string): Promise<OrgNote[]> {
     organizationId: n.organization_id,
     content: n.content,
     createdByName: n.created_by_name,
+    createdByEmail: n.created_by_email,
     createdAt: n.created_at,
   }));
 }

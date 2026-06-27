@@ -163,6 +163,7 @@ export interface OrgNote {
   organizationId: string;
   content: string;
   createdByName: string | null;
+  createdByEmail: string | null;
   createdAt: string;
 }
 
