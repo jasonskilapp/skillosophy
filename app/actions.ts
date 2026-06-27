@@ -327,6 +327,38 @@ export async function addOrgNote(
 }
 
 // ---------------------------------------------------------------------------
+// Platform admin: change an org member's role
+// ---------------------------------------------------------------------------
+
+export async function changeOrgMemberRole(
+  orgId: string,
+  memberId: string,
+  newRole: "org_admin" | "member",
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "platform_admin") {
+    return { error: "Not authorized." };
+  }
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("id", memberId)
+    .eq("organization_id", orgId)
+    .maybeSingle();
+  if (!profile) return { error: "Member not found in this organization." };
+
+  const { error } = await admin
+    .from("profiles")
+    .update({ org_role: newRole })
+    .eq("id", memberId);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Platform admin: suspend / reactivate / inactivate an org member
 // ---------------------------------------------------------------------------
 

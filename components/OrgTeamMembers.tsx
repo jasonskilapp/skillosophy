@@ -1,6 +1,7 @@
 import type { TeamMemberWithCount } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import MemberActions from "./MemberActions";
+import RoleSelector from "./RoleSelector";
 
 export default function OrgTeamMembers({
   orgId,
@@ -46,15 +47,17 @@ export default function OrgTeamMembers({
                     {m.email}
                   </td>
                   <td className="py-2.5 pr-4">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        m.orgRole === "org_admin"
-                          ? "bg-primary-soft text-primary"
-                          : "bg-foundational-soft text-muted"
-                      }`}
-                    >
-                      {m.orgRole === "org_admin" ? "Admin" : "Member"}
-                    </span>
+                    {m.status === "active" && m.accountStatus !== "inactive" ? (
+                      <RoleSelector
+                        orgId={orgId}
+                        memberId={m.id}
+                        currentRole={m.orgRole}
+                      />
+                    ) : (
+                      <span className="text-[11px] text-muted">
+                        {m.orgRole === "org_admin" ? "Admin" : "Standard user"}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 pr-4">
                     <AccountStatusBadge
