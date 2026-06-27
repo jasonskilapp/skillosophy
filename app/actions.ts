@@ -336,9 +336,18 @@ export async function changeOrgMemberRole(
   newRole: "org_admin" | "member",
 ): Promise<ActionResult> {
   const session = await getSession();
-  if (!session || session.accountType !== "platform_admin") {
+  if (!session) return { error: "Not authorized." };
+
+  const isPlatformAdmin = session.accountType === "platform_admin";
+  const isOrgAdmin =
+    session.accountType === "org_member" && session.orgRole === "org_admin";
+
+  if (!isPlatformAdmin && !isOrgAdmin) return { error: "Not authorized." };
+  // Org admins can only manage their own org.
+  if (isOrgAdmin && session.organizationId !== orgId) {
     return { error: "Not authorized." };
   }
+
   if (appMode === "mock") return { ok: true };
 
   const admin = createSupabaseAdminClient();

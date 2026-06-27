@@ -9,10 +9,12 @@ export default function RoleSelector({
   orgId,
   memberId,
   currentRole,
+  memberLabel = "Standard user",
 }: {
   orgId: string;
   memberId: string;
   currentRole: OrgRole;
+  memberLabel?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +43,7 @@ export default function RoleSelector({
         className="rounded-md border border-border bg-surface px-2 py-0.5 text-[11px] font-medium outline-none focus:border-primary disabled:opacity-50"
       >
         <option value="org_admin">Admin</option>
-        <option value="member">Standard user</option>
+        <option value="member">{memberLabel}</option>
       </select>
       {pending && <span className="text-[11px] text-muted">Saving…</span>}
       {error && <span className="text-[11px] text-competent">{error}</span>}

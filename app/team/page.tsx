@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import TeamInviteCreator from "@/components/TeamInviteCreator";
+import RoleSelector from "@/components/RoleSelector";
 import { getSession, orgLabels } from "@/lib/auth";
 import { appMode } from "@/lib/config";
 import { getOrganization, getSeatUsage, listTeam } from "@/lib/data";
@@ -72,9 +73,18 @@ export default async function TeamPage() {
                   <p className="truncate text-xs text-muted">{m.email}</p>
                 </div>
               </div>
-              <span className="text-xs text-muted">
-                {m.orgRole === "org_admin" ? "Org admin" : labels.member}
-              </span>
+              {m.status === "active" ? (
+                <RoleSelector
+                  orgId={session.organizationId!}
+                  memberId={m.id}
+                  currentRole={m.orgRole}
+                  memberLabel={labels.member}
+                />
+              ) : (
+                <span className="text-xs text-muted">
+                  {m.orgRole === "org_admin" ? "Admin" : labels.member}
+                </span>
+              )}
               <span
                 className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
                   m.status === "active"
