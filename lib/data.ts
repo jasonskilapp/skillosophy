@@ -15,6 +15,7 @@ import type {
   OrgSummary,
   OrgType,
   TeamMember,
+  TeamMemberWithCount,
 } from "./types";
 
 /**
@@ -182,6 +183,64 @@ export async function listTeam(orgId: string): Promise<TeamMember[]> {
     status: "invited",
     createdAt: i.created_at,
   }));
+  return [...active, ...pending];
+}
+
+export async function listTeamWithCandidateCounts(
+  orgId: string,
+): Promise<TeamMemberWithCount[]> {
+  if (appMode === "mock") {
+    return MOCK_TEAM.map((m) => ({ ...m, candidateCount: 0 }));
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const [{ data: members }, { data: invites }, { data: candidateRows }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name, email, org_role, created_at")
+        .eq("organization_id", orgId)
+        .eq("account_type", "org_member")
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("team_invites")
+        .select("id, name, email, org_role, created_at")
+        .eq("organization_id", orgId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("candidates")
+        .select("recruiter_id")
+        .eq("organization_id", orgId),
+    ]);
+
+  const countMap = new Map<string, number>();
+  for (const c of candidateRows ?? []) {
+    if (c.recruiter_id) {
+      countMap.set(c.recruiter_id, (countMap.get(c.recruiter_id) ?? 0) + 1);
+    }
+  }
+
+  const active: TeamMemberWithCount[] = (members ?? []).map((m) => ({
+    id: m.id,
+    name: m.full_name ?? m.email,
+    email: m.email,
+    orgRole: (m.org_role as TeamMember["orgRole"]) ?? "member",
+    status: "active",
+    createdAt: m.created_at,
+    candidateCount: countMap.get(m.id) ?? 0,
+  }));
+
+  const pending: TeamMemberWithCount[] = (invites ?? []).map((i) => ({
+    id: i.id,
+    name: i.name ?? i.email ?? "Invited",
+    email: i.email ?? "",
+    orgRole: (i.org_role as TeamMember["orgRole"]) ?? "member",
+    status: "invited",
+    createdAt: i.created_at,
+    candidateCount: 0,
+  }));
+
   return [...active, ...pending];
 }
 

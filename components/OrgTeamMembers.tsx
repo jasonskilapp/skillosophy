@@ -1,0 +1,78 @@
+import type { TeamMemberWithCount } from "@/lib/types";
+import { formatDate } from "@/lib/format";
+
+export default function OrgTeamMembers({
+  members,
+}: {
+  members: TeamMemberWithCount[];
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-5">
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <h2 className="font-semibold">Team Members</h2>
+        <span className="rounded-full bg-foundational-soft px-2.5 py-0.5 text-[11px] font-medium text-muted">
+          {members.filter((m) => m.status === "active").length} active
+        </span>
+      </div>
+
+      {members.length === 0 ? (
+        <p className="text-sm text-muted">No team members yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-[11px] font-medium uppercase tracking-wide text-muted">
+                <th className="pb-2 pr-4">Name</th>
+                <th className="pb-2 pr-4">Email</th>
+                <th className="pb-2 pr-4">Role</th>
+                <th className="pb-2 pr-4 text-right">Candidates</th>
+                <th className="pb-2 text-right">Joined</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {members.map((m) => (
+                <tr key={m.id} className="group">
+                  <td className="py-2.5 pr-4 font-medium">
+                    {m.name}
+                    {m.status === "invited" && (
+                      <span className="ml-2 rounded-full bg-accent-blue-soft px-1.5 py-0.5 text-[10px] font-medium text-accent-blue">
+                        Pending
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2.5 pr-4 font-mono text-xs text-muted">
+                    {m.email}
+                  </td>
+                  <td className="py-2.5 pr-4">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        m.orgRole === "org_admin"
+                          ? "bg-primary-soft text-primary"
+                          : "bg-foundational-soft text-muted"
+                      }`}
+                    >
+                      {m.orgRole === "org_admin" ? "Admin" : "Member"}
+                    </span>
+                  </td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums">
+                    {m.status === "active" ? m.candidateCount : "—"}
+                  </td>
+                  <td className="py-2.5 text-right text-xs text-muted">
+                    {m.status === "active"
+                      ? formatDate(m.createdAt)
+                      : "Invited " + formatDate(m.createdAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="mt-4 text-[11px] text-muted">
+        Candidate files and profiles are only accessible to org members. Platform
+        admins see counts only.
+      </p>
+    </div>
+  );
+}

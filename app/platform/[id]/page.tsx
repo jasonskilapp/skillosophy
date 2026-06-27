@@ -3,8 +3,9 @@ import Link from "next/link";
 import TopBar from "@/components/TopBar";
 import OrgEditor from "@/components/OrgEditor";
 import OrgNotes from "@/components/OrgNotes";
+import OrgTeamMembers from "@/components/OrgTeamMembers";
 import { getSession } from "@/lib/auth";
-import { getOrganization, listOrgNotes } from "@/lib/data";
+import { getOrganization, listOrgNotes, listTeamWithCandidateCounts } from "@/lib/data";
 import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +20,10 @@ export default async function OrgDetailPage({
   if (session.accountType !== "platform_admin") redirect("/");
 
   const { id } = await params;
-  const [org, notes] = await Promise.all([
+  const [org, notes, members] = await Promise.all([
     getOrganization(id),
     listOrgNotes(id),
+    listTeamWithCandidateCounts(id),
   ]);
 
   if (!org) notFound();
@@ -67,6 +69,7 @@ export default async function OrgDetailPage({
         </div>
 
         <div className="flex flex-col gap-6">
+          <OrgTeamMembers members={members} />
           <OrgEditor org={org} />
           <OrgNotes orgId={org.id} initialNotes={notes} />
         </div>

@@ -55,6 +55,11 @@ export interface TeamMember {
   createdAt: string;
 }
 
+/** TeamMember plus the number of candidates they own — for the platform admin view only. */
+export interface TeamMemberWithCount extends TeamMember {
+  candidateCount: number;
+}
+
 export type CareerStage =
   | "Early Career"
   | "Developing"
