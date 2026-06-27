@@ -15,6 +15,7 @@ import {
   createSupabaseServerClient,
 } from "@/lib/supabase/server";
 import { runAnalysis } from "@/lib/pipeline";
+import { sendTeamInviteEmail, sendCandidateInviteEmail } from "@/lib/email";
 import type { OrgRole, OrgType } from "@/lib/types";
 
 type ActionResult = {
@@ -216,10 +217,18 @@ export async function createOrganization(
   });
   if (inviteError) return { error: inviteError.message };
 
+  await sendTeamInviteEmail({
+    toName: adminName,
+    toEmail: adminEmail,
+    token,
+    orgName: name,
+    role: "org_admin",
+  }).catch(console.error);
+
   return {
     ok: true,
     token,
-    message: `"${name}" created as ${code}. Send the join link to ${adminName}.`,
+    message: `"${name}" created as ${code}. An invitation email has been sent to ${adminName}.`,
   };
 }
 
@@ -285,7 +294,15 @@ export async function createTeamInvite(
   });
   if (error) return { error: error.message };
 
-  return { ok: true, token, message: "Invite link generated." };
+  await sendTeamInviteEmail({
+    toName: name || email,
+    toEmail: email,
+    token,
+    orgName: session.organizationName ?? "your organization",
+    role: orgRole,
+  }).catch(console.error);
+
+  return { ok: true, token, message: `Invitation sent to ${email}.` };
 }
 
 // ---------------------------------------------------------------------------
@@ -408,7 +425,21 @@ export async function createInvite(
   });
   if (error) return { error: error.message };
 
-  return { ok: true, token, message: "Invite link generated." };
+  if (candidateEmail) {
+    await sendCandidateInviteEmail({
+      toEmail: candidateEmail,
+      token,
+      orgName: session.organizationName ?? "your advisor",
+    }).catch(console.error);
+  }
+
+  return {
+    ok: true,
+    token,
+    message: candidateEmail
+      ? `Invite sent to ${candidateEmail}.`
+      : "Invite link generated.",
+  };
 }
 
 // ---------------------------------------------------------------------------
