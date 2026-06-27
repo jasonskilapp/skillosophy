@@ -190,7 +190,7 @@ export async function listTeamWithCandidateCounts(
   orgId: string,
 ): Promise<TeamMemberWithCount[]> {
   if (appMode === "mock") {
-    return MOCK_TEAM.map((m) => ({ ...m, candidateCount: 0 }));
+    return MOCK_TEAM.map((m) => ({ ...m, candidateCount: 0, accountStatus: "active" as const }));
   }
 
   const supabase = createSupabaseAdminClient();
@@ -198,7 +198,7 @@ export async function listTeamWithCandidateCounts(
     await Promise.all([
       supabase
         .from("profiles")
-        .select("id, full_name, email, org_role, created_at")
+        .select("id, full_name, email, org_role, member_status, created_at")
         .eq("organization_id", orgId)
         .eq("account_type", "org_member")
         .order("created_at", { ascending: true }),
@@ -229,6 +229,7 @@ export async function listTeamWithCandidateCounts(
     status: "active",
     createdAt: m.created_at,
     candidateCount: countMap.get(m.id) ?? 0,
+    accountStatus: (m.member_status as TeamMemberWithCount["accountStatus"]) ?? "active",
   }));
 
   const pending: TeamMemberWithCount[] = (invites ?? []).map((i) => ({
@@ -239,6 +240,7 @@ export async function listTeamWithCandidateCounts(
     status: "invited",
     createdAt: i.created_at,
     candidateCount: 0,
+    accountStatus: "active" as const,
   }));
 
   return [...active, ...pending];

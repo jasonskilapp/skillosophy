@@ -58,6 +58,8 @@ export interface TeamMember {
 /** TeamMember plus the number of candidates they own — for the platform admin view only. */
 export interface TeamMemberWithCount extends TeamMember {
   candidateCount: number;
+  /** "active" | "suspended" | "inactive" for joined members; always "active" for pending invites. */
+  accountStatus: "active" | "suspended" | "inactive";
 }
 
 export type CareerStage =

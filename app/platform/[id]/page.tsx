@@ -69,7 +69,7 @@ export default async function OrgDetailPage({
         </div>
 
         <div className="flex flex-col gap-6">
-          <OrgTeamMembers members={members} />
+          <OrgTeamMembers orgId={org.id} members={members} />
           <OrgEditor org={org} />
           <OrgNotes orgId={org.id} initialNotes={notes} />
         </div>

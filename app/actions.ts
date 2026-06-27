@@ -327,6 +327,93 @@ export async function addOrgNote(
 }
 
 // ---------------------------------------------------------------------------
+// Platform admin: suspend / reactivate / inactivate an org member
+// ---------------------------------------------------------------------------
+
+async function setMemberStatus(
+  orgId: string,
+  memberId: string,
+  memberStatus: "active" | "suspended" | "inactive",
+  banned: boolean,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "platform_admin") {
+    return { error: "Not authorized." };
+  }
+  if (appMode === "mock") {
+    return { ok: true };
+  }
+  const admin = createSupabaseAdminClient();
+  // Verify member belongs to this org before acting.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("id", memberId)
+    .eq("organization_id", orgId)
+    .maybeSingle();
+  if (!profile) return { error: "Member not found in this organization." };
+
+  const [{ error: profileErr }, { error: authErr }] = await Promise.all([
+    admin
+      .from("profiles")
+      .update({ member_status: memberStatus })
+      .eq("id", memberId),
+    admin.auth.admin.updateUserById(memberId, {
+      ban_duration: banned ? "876600h" : "none",
+    }),
+  ]);
+
+  if (profileErr) return { error: profileErr.message };
+  if (authErr) return { error: authErr.message };
+  return { ok: true };
+}
+
+export async function suspendOrgMember(
+  orgId: string,
+  memberId: string,
+): Promise<ActionResult> {
+  return setMemberStatus(orgId, memberId, "suspended", true);
+}
+
+export async function reactivateOrgMember(
+  orgId: string,
+  memberId: string,
+): Promise<ActionResult> {
+  return setMemberStatus(orgId, memberId, "active", false);
+}
+
+export async function inactivateOrgMember(
+  orgId: string,
+  memberId: string,
+): Promise<ActionResult> {
+  return setMemberStatus(orgId, memberId, "inactive", true);
+}
+
+// ---------------------------------------------------------------------------
+// Platform admin: cancel a pending team invite
+// ---------------------------------------------------------------------------
+
+export async function cancelTeamInvite(
+  orgId: string,
+  inviteId: string,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "platform_admin") {
+    return { error: "Not authorized." };
+  }
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
+    .from("team_invites")
+    .update({ status: "cancelled" })
+    .eq("id", inviteId)
+    .eq("organization_id", orgId);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Org admin: invite a teammate (seat-capped)
 // ---------------------------------------------------------------------------
 
