@@ -2,8 +2,9 @@ import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SMTP_HOST,
-  port: Number(process.env.EMAIL_SMTP_PORT ?? 465),
-  secure: true,
+  port: 587,
+  secure: false,
+  requireTLS: true,
   auth: {
     user: process.env.EMAIL_SMTP_USER,
     pass: process.env.EMAIL_SMTP_PASS,
@@ -77,6 +78,62 @@ export async function sendCandidateInviteEmail({
           <a href="${joinUrl}" style="color:#1f9d76;">${joinUrl}</a>
         </p>
         <p style="margin:16px 0 0;font-size:12px;color:#9aa5b4;">This link expires in 7 days.</p>
+      </div>
+    `,
+  });
+}
+
+export async function sendSuspendReviewEmail({
+  toName,
+  toEmail,
+  memberName,
+  memberEmail,
+  orgName,
+  suspendedAt,
+  manageUrl,
+}: {
+  toName: string;
+  toEmail: string;
+  memberName: string;
+  memberEmail: string;
+  orgName: string;
+  suspendedAt: string;
+  manageUrl: string;
+}) {
+  const suspendedDate = new Date(suspendedAt).toLocaleDateString("en-CA", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  await transporter.sendMail({
+    from: FROM,
+    to: toEmail,
+    subject: `Action required: ${memberName} has been suspended for 30 days — ${orgName}`,
+    html: `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1a2231;">
+        <h2 style="margin:0 0 8px;font-size:22px;">Suspension review required</h2>
+        <p style="margin:0 0 16px;color:#687387;">Hi ${toName},</p>
+        <p style="margin:0 0 16px;color:#687387;">
+          <strong>${memberName}</strong> (${memberEmail}) has been suspended from
+          <strong>${orgName}</strong> since <strong>${suspendedDate}</strong> — that's 30 days ago.
+        </p>
+        <p style="margin:0 0 24px;color:#687387;">
+          Please review their account and confirm whether they should be
+          <strong>reactivated</strong> (returning from leave) or
+          <strong>permanently deactivated</strong>.
+        </p>
+        <a href="${manageUrl}" style="display:inline-block;background:#1f9d76;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:15px;">
+          Review account
+        </a>
+        <p style="margin:24px 0 0;font-size:13px;color:#687387;">
+          Or copy this link into your browser:<br/>
+          <a href="${manageUrl}" style="color:#1f9d76;">${manageUrl}</a>
+        </p>
+        <p style="margin:16px 0 0;font-size:12px;color:#9aa5b4;">
+          If no action is taken, the account will remain suspended.
+          Contact Skillosophy support if you need assistance.
+        </p>
       </div>
     `,
   });

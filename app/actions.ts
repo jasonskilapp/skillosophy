@@ -353,11 +353,19 @@ async function setMemberStatus(
     .maybeSingle();
   if (!profile) return { error: "Member not found in this organization." };
 
+  const now = new Date().toISOString();
+  const profileUpdate: Record<string, unknown> = { member_status: memberStatus };
+  if (memberStatus === "suspended") {
+    profileUpdate.suspended_at = now;
+    profileUpdate.suspend_review_sent_at = null;
+  } else {
+    // Reactivating or inactivating — clear the suspension clock.
+    profileUpdate.suspended_at = null;
+    profileUpdate.suspend_review_sent_at = null;
+  }
+
   const [{ error: profileErr }, { error: authErr }] = await Promise.all([
-    admin
-      .from("profiles")
-      .update({ member_status: memberStatus })
-      .eq("id", memberId),
+    admin.from("profiles").update(profileUpdate).eq("id", memberId),
     admin.auth.admin.updateUserById(memberId, {
       ban_duration: banned ? "876600h" : "none",
     }),
