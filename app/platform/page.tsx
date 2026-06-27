@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import TopBar from "@/components/TopBar";
 import OrgCreator from "@/components/OrgCreator";
 import { getSession } from "@/lib/auth";
@@ -78,6 +79,14 @@ export default async function PlatformConsole() {
                   <Stat value={`${o.seatsUsed}/${o.seatLimit}`} label="Seats" />
                   <Stat value={String(o.memberCount)} label="Members" />
                   <Stat value={String(o.candidateCount)} label="Candidates" />
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <Link
+                    href={`/platform/${o.id}`}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-foundational-soft transition"
+                  >
+                    Manage →
+                  </Link>
                 </div>
               </div>
             ))}

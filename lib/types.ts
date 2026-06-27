@@ -157,6 +157,15 @@ export interface CandidateReport {
   estimatesNote?: string;
 }
 
+/** A timestamped note on an organization, written by a platform admin. */
+export interface OrgNote {
+  id: string;
+  organizationId: string;
+  content: string;
+  createdByName: string | null;
+  createdAt: string;
+}
+
 /** A row in a member's candidate list (tile). Always scoped to one organization. */
 export interface CandidateSummary {
   id: string;

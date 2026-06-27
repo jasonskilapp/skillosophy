@@ -233,6 +233,99 @@ export async function createOrganization(
 }
 
 // ---------------------------------------------------------------------------
+// Platform admin: update an organization
+// ---------------------------------------------------------------------------
+
+export async function updateOrganization(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "platform_admin") {
+    return { error: "Not authorized." };
+  }
+
+  const id = String(formData.get("id") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const type = String(formData.get("type") ?? "") as OrgType;
+  const seatLimit = parseInt(String(formData.get("seatLimit") ?? ""), 10);
+  const status = String(formData.get("status") ?? "") as "active" | "suspended";
+  const customerCode = String(formData.get("customerCode") ?? "")
+    .trim()
+    .toUpperCase();
+
+  if (!id) return { error: "Organization ID is required." };
+  if (!name) return { error: "Organization name is required." };
+  if (type !== "campus" && type !== "newcomer") {
+    return { error: "Invalid organization type." };
+  }
+  if (!Number.isFinite(seatLimit) || seatLimit < 1) {
+    return { error: "Seat limit must be a positive number." };
+  }
+  if (status !== "active" && status !== "suspended") {
+    return { error: "Invalid status." };
+  }
+  if (customerCode && !/^[A-Z0-9-]{2,32}$/.test(customerCode)) {
+    return { error: "Customer code may use letters, numbers, and dashes only." };
+  }
+
+  if (appMode === "mock") {
+    return { ok: true, message: "Demo mode: changes not persisted." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
+    .from("organizations")
+    .update({
+      name,
+      slug: slugify(name),
+      type,
+      seat_limit: seatLimit,
+      status,
+      ...(customerCode ? { customer_code: customerCode } : {}),
+    })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  return { ok: true, message: "Organization updated." };
+}
+
+// ---------------------------------------------------------------------------
+// Platform admin: add a note to an organization
+// ---------------------------------------------------------------------------
+
+export async function addOrgNote(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "platform_admin") {
+    return { error: "Not authorized." };
+  }
+
+  const orgId = String(formData.get("orgId") ?? "").trim();
+  const content = String(formData.get("content") ?? "").trim();
+
+  if (!orgId) return { error: "Organization ID is required." };
+  if (!content) return { error: "Note content is required." };
+
+  if (appMode === "mock") {
+    return { ok: true, message: "Demo mode: note not persisted." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.from("org_notes").insert({
+    organization_id: orgId,
+    content,
+    created_by: session.userId,
+    created_by_name: session.name,
+  });
+
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Org admin: invite a teammate (seat-capped)
 // ---------------------------------------------------------------------------
 
@@ -294,15 +387,23 @@ export async function createTeamInvite(
   });
   if (error) return { error: error.message };
 
-  await sendTeamInviteEmail({
+  const emailError = await sendTeamInviteEmail({
     toName: name || email,
     toEmail: email,
     token,
     orgName: session.organizationName ?? "your organization",
     role: orgRole,
-  }).catch(console.error);
+  }).then(() => null).catch((e: Error) => e.message);
 
-  return { ok: true, token, message: `Invitation sent to ${email}.` };
+  if (emailError) console.error("[email] team invite failed:", emailError);
+
+  return {
+    ok: true,
+    token,
+    message: emailError
+      ? `Invite link generated but email failed: ${emailError}`
+      : `Invitation sent to ${email}.`,
+  };
 }
 
 // ---------------------------------------------------------------------------

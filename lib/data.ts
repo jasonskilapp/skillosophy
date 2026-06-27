@@ -11,6 +11,7 @@ import type { Session } from "./auth";
 import type {
   CandidateReport,
   CandidateSummary,
+  OrgNote,
   OrgSummary,
   OrgType,
   TeamMember,
@@ -121,6 +122,24 @@ export async function getOrganization(id: string): Promise<OrgSummary | null> {
     .single();
   if (error || !data) return null;
   return withCounts(data);
+}
+
+export async function listOrgNotes(orgId: string): Promise<OrgNote[]> {
+  if (appMode === "mock") return [];
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("org_notes")
+    .select("id, organization_id, content, created_by_name, created_at")
+    .eq("organization_id", orgId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((n) => ({
+    id: n.id,
+    organizationId: n.organization_id,
+    content: n.content,
+    createdByName: n.created_by_name,
+    createdAt: n.created_at,
+  }));
 }
 
 // ---------------------------------------------------------------------------
