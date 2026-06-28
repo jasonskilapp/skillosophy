@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useEffect } from "react";
+import { useActionState, useRef, useEffect, useState } from "react";
 import { addCandidateNote } from "@/app/actions";
 import {
   NOTE_TAG_LABELS,
@@ -20,10 +20,27 @@ export default function CandidateNotes({
 }) {
   const [state, action, pending] = useActionState(addCandidateNote, {});
   const formRef = useRef<HTMLFormElement>(null);
+  const [selectedTags, setSelectedTags] = useState<NoteTag[]>([]);
 
   useEffect(() => {
-    if (state.ok) formRef.current?.reset();
+    if (state.ok) {
+      formRef.current?.reset();
+      setSelectedTags([]);
+    }
   }, [state.ok]);
+
+  const handleTagChange = (tag: NoteTag, checked: boolean) => {
+    if (tag === "internal_note") {
+      // Internal note is exclusive — clear everything else when selected.
+      setSelectedTags(checked ? ["internal_note"] : []);
+    } else {
+      // Any other tag deselects internal note.
+      setSelectedTags((prev) => {
+        const without = prev.filter((t) => t !== "internal_note" && t !== tag);
+        return checked ? [...without, tag] : without;
+      });
+    }
+  };
 
   return (
     <div className="mt-8 rounded-xl border border-border bg-surface p-5">
@@ -32,6 +49,10 @@ export default function CandidateNotes({
       {/* Add note form */}
       <form ref={formRef} action={action} className="mb-6 space-y-3">
         <input type="hidden" name="candidateId" value={candidateId} />
+        {/* Controlled hidden inputs drive what gets submitted */}
+        {selectedTags.map((t) => (
+          <input key={t} type="hidden" name="tags" value={t} />
+        ))}
 
         <textarea
           name="content"
@@ -43,23 +64,36 @@ export default function CandidateNotes({
 
         <div>
           <p className="mb-2 text-xs font-medium text-muted">
-            Tags <span className="font-normal">(select all that apply)</span>
+            Tags{" "}
+            <span className="font-normal">
+              (select all that apply — Internal note is exclusive)
+            </span>
           </p>
           <div className="flex flex-wrap gap-2">
-            {ALL_TAGS.map(([value, label]) => (
-              <label
-                key={value}
-                className="flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:border-primary hover:text-primary has-[:checked]:border-primary has-[:checked]:bg-primary-soft has-[:checked]:text-primary"
-              >
-                <input
-                  type="checkbox"
-                  name="tags"
-                  value={value}
-                  className="sr-only"
-                />
-                {label}
-              </label>
-            ))}
+            {ALL_TAGS.map(([value, label]) => {
+              const isChecked = selectedTags.includes(value);
+              const isDisabled =
+                !isChecked &&
+                value !== "internal_note" &&
+                selectedTags.includes("internal_note");
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={isDisabled}
+                  onClick={() => handleTagChange(value, !isChecked)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    isChecked
+                      ? "border-primary bg-primary-soft text-primary"
+                      : isDisabled
+                        ? "cursor-not-allowed border-border opacity-40"
+                        : "border-border hover:border-primary hover:text-primary"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
