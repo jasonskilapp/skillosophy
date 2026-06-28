@@ -189,4 +189,43 @@ export interface CandidateSummary {
   organizationId?: string | null;
   /** Name of the member (advisor/caseworker/recruiter) who owns this candidate. */
   ownerName?: string | null;
+  /** Recruiter workflow status, independent of the AI pipeline status. */
+  workflowStatus?: WorkflowStatus | null;
+}
+
+export type WorkflowStatus =
+  | "intake_in_progress"
+  | "appointment_scheduled"
+  | "profile_reviewed"
+  | "appointment_completed";
+
+export const WORKFLOW_STATUS_LABELS: Record<WorkflowStatus, string> = {
+  intake_in_progress: "Intake in progress",
+  appointment_scheduled: "Appointment scheduled",
+  profile_reviewed: "Profile reviewed",
+  appointment_completed: "Appointment completed",
+};
+
+export type NoteTag =
+  | "internal_note"
+  | "recommendation"
+  | "missing_skills"
+  | "missing_certifications"
+  | "missing_employment";
+
+export const NOTE_TAG_LABELS: Record<NoteTag, string> = {
+  internal_note: "Internal note",
+  recommendation: "Recommendation for next review",
+  missing_skills: "Missing skills",
+  missing_certifications: "Missing certifications",
+  missing_employment: "Missing employment",
+};
+
+export interface CandidateNote {
+  id: string;
+  candidateId: string;
+  content: string;
+  tags: NoteTag[];
+  createdByName: string | null;
+  createdAt: string;
 }

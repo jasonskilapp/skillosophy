@@ -9,13 +9,16 @@ import {
 import { createSupabaseAdminClient } from "./supabase/server";
 import type { Session } from "./auth";
 import type {
+  CandidateNote,
   CandidateReport,
   CandidateSummary,
+  NoteTag,
   OrgNote,
   OrgSummary,
   OrgType,
   TeamMember,
   TeamMemberWithCount,
+  WorkflowStatus,
 } from "./types";
 
 /**
@@ -44,7 +47,7 @@ export async function listCandidatesForSession(
   let query = supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status",
     )
     .eq("organization_id", session.organizationId)
     .order("uploaded_at", { ascending: false });
@@ -70,7 +73,7 @@ export async function listCandidatesForMember(
   const { data, error } = await supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status",
     )
     .eq("organization_id", orgId)
     .eq("recruiter_id", recruiterId)
@@ -97,7 +100,7 @@ export async function getCandidate(
   const { data, error } = await supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report, workflow_status",
     )
     .eq("id", id)
     .single();
@@ -206,6 +209,42 @@ export async function listTeam(orgId: string): Promise<TeamMember[]> {
   return [...active, ...pending];
 }
 
+export async function listCandidateNotes(
+  candidateId: string,
+  session: Session,
+): Promise<CandidateNote[]> {
+  if (appMode === "mock") return [];
+  if (!session.organizationId) return [];
+
+  const supabase = createSupabaseAdminClient();
+
+  // Verify candidate is in this org and the session has visibility.
+  const { data: candidate } = await supabase
+    .from("candidates")
+    .select("organization_id, recruiter_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) return [];
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) return [];
+
+  const { data, error } = await supabase
+    .from("candidate_notes")
+    .select("id, candidate_id, content, tags, created_by_name, created_at")
+    .eq("candidate_id", candidateId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((n) => ({
+    id: n.id,
+    candidateId: n.candidate_id,
+    content: n.content,
+    tags: (n.tags ?? []) as NoteTag[],
+    createdByName: n.created_by_name,
+    createdAt: n.created_at,
+  }));
+}
+
 export async function listTeamWithCandidateCounts(
   orgId: string,
 ): Promise<TeamMemberWithCount[]> {
@@ -312,7 +351,7 @@ export async function getSeekerCandidate(
   const { data } = await supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status",
     )
     .eq("seeker_id", seekerId)
     .order("uploaded_at", { ascending: false })
@@ -444,6 +483,7 @@ type CandidateRow = {
   headline: string | null;
   organization_id: string | null;
   recruiter_name: string | null;
+  workflow_status?: string | null;
 };
 
 function rowToSummary(row: CandidateRow): CandidateSummary {
@@ -456,6 +496,7 @@ function rowToSummary(row: CandidateRow): CandidateSummary {
     headline: row.headline,
     organizationId: row.organization_id,
     ownerName: row.recruiter_name,
+    workflowStatus: (row.workflow_status as WorkflowStatus | null) ?? null,
   };
 }
 

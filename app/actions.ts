@@ -813,3 +813,101 @@ export async function submitResume(
     message: "Resume uploaded — analysis is running.",
   };
 }
+
+// ---------------------------------------------------------------------------
+// Org member: update candidate workflow status
+// ---------------------------------------------------------------------------
+
+const VALID_WORKFLOW_STATUSES = [
+  "intake_in_progress",
+  "appointment_scheduled",
+  "profile_reviewed",
+  "appointment_completed",
+] as const;
+
+export async function updateCandidateWorkflowStatus(
+  candidateId: string,
+  status: string | null,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+
+  if (status !== null && !(VALID_WORKFLOW_STATUSES as readonly string[]).includes(status)) {
+    return { error: "Invalid status." };
+  }
+
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) {
+    return { error: "Not authorized." };
+  }
+
+  const { error } = await admin
+    .from("candidates")
+    .update({ workflow_status: status })
+    .eq("id", candidateId);
+
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Org member: add a note to a candidate
+// ---------------------------------------------------------------------------
+
+export async function addCandidateNote(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+
+  const candidateId = String(formData.get("candidateId") ?? "").trim();
+  const content = String(formData.get("content") ?? "").trim();
+  const tags = formData.getAll("tags") as string[];
+
+  if (!candidateId) return { error: "Candidate ID is required." };
+  if (!content) return { error: "Note content is required." };
+
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) {
+    return { error: "Not authorized." };
+  }
+
+  const { error } = await admin.from("candidate_notes").insert({
+    candidate_id: candidateId,
+    organization_id: session.organizationId,
+    content,
+    tags,
+    created_by: session.userId,
+    created_by_name: session.name,
+  });
+
+  if (error) return { error: error.message };
+  return { ok: true };
+}

@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import CandidateProfile from "@/components/CandidateProfile";
+import WorkflowStatusSelector from "@/components/WorkflowStatusSelector";
+import CandidateNotes from "@/components/CandidateNotes";
 import { ArrowLeftIcon, CalendarIcon, ClockIcon } from "@/components/icons";
 import { getSession, orgLabels } from "@/lib/auth";
-import { getCandidate } from "@/lib/data";
+import { getCandidate, listCandidateNotes } from "@/lib/data";
 import { formatDate, formatDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +21,10 @@ export default async function CandidateDetailPage({
   if (session.accountType !== "org_member") redirect("/");
 
   const { id } = await params;
-  const result = await getCandidate(session, id);
+  const [result, notes] = await Promise.all([
+    getCandidate(session, id),
+    listCandidateNotes(id, session),
+  ]);
   if (!result) notFound();
 
   const { summary, report } = result;
@@ -29,7 +34,8 @@ export default async function CandidateDetailPage({
     <>
       <TopBar session={session} />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        {/* Nav row */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition hover:text-foreground"
@@ -52,17 +58,27 @@ export default async function CandidateDetailPage({
           </div>
         </div>
 
+        {/* Workflow status bar */}
+        <div className="mb-6 flex items-center rounded-lg border border-border bg-surface px-4 py-3">
+          <WorkflowStatusSelector
+            candidateId={id}
+            currentStatus={summary.workflowStatus ?? null}
+          />
+        </div>
+
         {report ? (
           <CandidateProfile report={report} />
         ) : (
           <div className="rounded-xl border border-border bg-surface p-10 text-center">
             <p className="font-medium">Analysis not ready</p>
             <p className="mt-1 text-sm text-muted">
-              This resume is still being analyzed, or analysis failed. Check back
-              shortly.
+              This resume is still being analyzed, or analysis failed. Check
+              back shortly.
             </p>
           </div>
         )}
+
+        <CandidateNotes candidateId={id} initialNotes={notes} />
       </main>
     </>
   );
