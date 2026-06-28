@@ -59,6 +59,26 @@ export async function listCandidatesForSession(
   return (data ?? []).map(rowToSummary);
 }
 
+export async function listCandidatesForMember(
+  orgId: string,
+  recruiterId: string,
+): Promise<CandidateSummary[]> {
+  if (appMode === "mock") {
+    return MOCK_CANDIDATES.filter((c) => c.organizationId === orgId);
+  }
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("candidates")
+    .select(
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name",
+    )
+    .eq("organization_id", orgId)
+    .eq("recruiter_id", recruiterId)
+    .order("uploaded_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(rowToSummary);
+}
+
 export async function getCandidate(
   session: Session,
   id: string,
