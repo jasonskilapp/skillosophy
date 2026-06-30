@@ -372,7 +372,7 @@
 .h1 {
   margin: 0;
   max-width: 680px;
-  font-size: clamp(3.3rem, 8vw, 7.6rem);
+  font-size: clamp(2.64rem, 6.4vw, 6.08rem);
   line-height: 0.9;
   font-weight: 680;
   text-wrap: balance;
