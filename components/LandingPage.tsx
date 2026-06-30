@@ -282,7 +282,7 @@ export default function LandingPage() {
         <div className={styles.heroInner}>
           <div className={`${styles.heroCopy} ${styles.reveal}`}>
             <p className={styles.eyebrow}>Careers from Your Skills</p>
-            <h1 className={styles.h1}>Your Skills Point Somewhere New.</h1>
+            <h1 className={styles.h1}>The groundwork is done before the session starts.</h1>
             <p>
               Skillosophy turns jobs, classes, projects, and volunteering into career
               directions that are easy to miss.
