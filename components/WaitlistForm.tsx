@@ -1,69 +1,80 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
+import { useState } from "react";
 
 export default function WaitlistForm() {
-  const [email, setEmail] = useState('')
-  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!email) return
-    setState('loading')
+    e.preventDefault();
+    if (!email) return;
+    setState("loading");
     try {
-      const res = await fetch('/api/waitlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
-      })
-      if (res.ok) {
-        setState('done')
-      } else {
-        setState('error')
-      }
+      });
+      setState(res.ok ? "done" : "error");
     } catch {
-      setState('error')
+      setState("error");
     }
   }
 
-  if (state === 'done') {
+  if (state === "done") {
     return (
-      <div className="text-sm text-[#DFA832]">
-        You&apos;re on the list. We&apos;ll map your path when it&apos;s ready.
-      </div>
-    )
+      <p style={{ color: "#35f2d0", fontSize: "1rem", fontWeight: 600 }}>
+        You&apos;re on the list — we&apos;ll map your path when it&apos;s ready.
+      </p>
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-0">
+    <form onSubmit={handleSubmit} style={{ display: "flex", gap: 0, width: "100%", maxWidth: 480 }}>
       <input
         type="email"
         required
         value={email}
-        onChange={e => setEmail(e.target.value)}
+        onChange={(e) => setEmail(e.target.value)}
         placeholder="Your email address"
-        className="
-          flex-1 min-w-0 px-4 py-3 bg-transparent
-          border border-white/10 text-[#EAE5D8] text-sm
-          placeholder:text-[#4E6898] outline-none
-          focus:border-white/25 transition-colors
-        "
+        style={{
+          flex: 1,
+          minWidth: 0,
+          padding: "14px 16px",
+          background: "rgba(255,255,255,0.06)",
+          border: "1px solid rgba(244,247,251,0.18)",
+          borderRight: "none",
+          borderRadius: "999px 0 0 999px",
+          color: "#f4f7fb",
+          fontSize: "0.95rem",
+          outline: "none",
+        }}
       />
       <button
         type="submit"
-        disabled={state === 'loading'}
-        className="
-          px-5 py-3 bg-[#DFA832] text-[#06091A] text-sm font-semibold
-          uppercase tracking-widest whitespace-nowrap
-          hover:bg-[#f0b83a] transition-colors
-          disabled:opacity-60
-        "
+        disabled={state === "loading"}
+        style={{
+          padding: "14px 24px",
+          background: "linear-gradient(135deg, #35f2d0, #4aa3ff)",
+          color: "#05070c",
+          border: "none",
+          borderRadius: "0 999px 999px 0",
+          fontWeight: 740,
+          fontSize: "0.95rem",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          opacity: state === "loading" ? 0.6 : 1,
+          fontFamily: "inherit",
+        }}
       >
-        {state === 'loading' ? '...' : 'Join Waitlist'}
+        {state === "loading" ? "…" : "Join Early Access"}
       </button>
-      {state === 'error' && (
-        <p className="absolute mt-12 text-xs text-red-400">Something went wrong. Try again.</p>
+      {state === "error" && (
+        <p style={{ position: "absolute", marginTop: 56, fontSize: "0.8rem", color: "#ff5c8a" }}>
+          Something went wrong. Please try again.
+        </p>
       )}
     </form>
-  )
+  );
 }
