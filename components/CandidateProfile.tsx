@@ -9,6 +9,7 @@ import type {
 import { compRange, initials, money, strengthMeta } from "@/lib/format";
 import {
   CheckIcon,
+  ChevronDownIcon,
   IndustryIcon,
   InfoIcon,
   NotesIcon,
@@ -43,10 +44,13 @@ function SectionHeading({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2.5 mb-4">
-      <span className="text-muted">{icon}</span>
-      <h2 className="text-lg font-semibold tracking-tight">{children}</h2>
-    </div>
+    <summary className="flex items-center justify-between gap-2.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none group-open:mb-4">
+      <div className="flex items-center gap-2.5">
+        <span className="text-muted">{icon}</span>
+        <h2 className="text-lg font-semibold tracking-tight">{children}</h2>
+      </div>
+      <ChevronDownIcon className="h-4 w-4 text-muted transition-transform duration-200 group-open:rotate-180" />
+    </summary>
   );
 }
 
@@ -135,7 +139,7 @@ function SkillCard({ title, skills }: { title: string; skills: Skill[] }) {
 
 function SkillsProfile({ report }: { report: CandidateReport }) {
   return (
-    <section>
+    <details open className="group">
       <SectionHeading icon={<SkillsIcon className="h-5 w-5" />}>
         Skills profile
       </SectionHeading>
@@ -143,7 +147,7 @@ function SkillsProfile({ report }: { report: CandidateReport }) {
         <SkillCard title="Hard skills" skills={report.skills.hard} />
         <SkillCard title="Soft skills" skills={report.skills.soft} />
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -198,7 +202,7 @@ function IndustryCard({ industry }: { industry: Industry }) {
 function IndustryFit({ report }: { report: CandidateReport }) {
   if (!report.industries?.length) return null;
   return (
-    <section>
+    <details open className="group">
       <SectionHeading icon={<IndustryIcon className="h-5 w-5" />}>
         Industry fit
       </SectionHeading>
@@ -207,7 +211,7 @@ function IndustryFit({ report }: { report: CandidateReport }) {
           <IndustryCard key={i} industry={ind} />
         ))}
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -228,7 +232,7 @@ function RoleCard({ role }: { role: TargetRole }) {
 function TargetRoles({ report }: { report: CandidateReport }) {
   if (!report.targetRoles?.length) return null;
   return (
-    <section>
+    <details open className="group">
       <SectionHeading icon={<TargetIcon className="h-5 w-5" />}>
         Target roles
       </SectionHeading>
@@ -237,7 +241,7 @@ function TargetRoles({ report }: { report: CandidateReport }) {
           <RoleCard key={i} role={r} />
         ))}
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -264,7 +268,7 @@ function KeywordBlock({ group }: { group: KeywordGroup }) {
 function Keywords({ report }: { report: CandidateReport }) {
   if (!report.keywords?.length) return null;
   return (
-    <section>
+    <details open className="group">
       <SectionHeading icon={<TagIcon className="h-5 w-5" />}>
         Top job-search keywords
       </SectionHeading>
@@ -273,7 +277,7 @@ function Keywords({ report }: { report: CandidateReport }) {
           <KeywordBlock key={i} group={g} />
         ))}
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -298,7 +302,7 @@ function NoteRow({ note }: { note: RecruiterNote }) {
 function RecruiterNotes({ report }: { report: CandidateReport }) {
   if (!report.recruiterNotes?.length) return null;
   return (
-    <section>
+    <details open className="group">
       <SectionHeading icon={<NotesIcon className="h-5 w-5" />}>
         Recruiter notes
       </SectionHeading>
@@ -307,6 +311,6 @@ function RecruiterNotes({ report }: { report: CandidateReport }) {
           <NoteRow key={i} note={n} />
         ))}
       </ul>
-    </section>
+    </details>
   );
 }
