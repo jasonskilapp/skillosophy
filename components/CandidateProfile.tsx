@@ -202,7 +202,7 @@ function IndustryCard({ industry }: { industry: Industry }) {
 function IndustryFit({ report }: { report: CandidateReport }) {
   if (!report.industries?.length) return null;
   return (
-    <details open className="group">
+    <details className="group">
       <SectionHeading icon={<IndustryIcon className="h-5 w-5" />}>
         Industry fit
       </SectionHeading>
@@ -232,7 +232,7 @@ function RoleCard({ role }: { role: TargetRole }) {
 function TargetRoles({ report }: { report: CandidateReport }) {
   if (!report.targetRoles?.length) return null;
   return (
-    <details open className="group">
+    <details className="group">
       <SectionHeading icon={<TargetIcon className="h-5 w-5" />}>
         Target roles
       </SectionHeading>
@@ -268,7 +268,7 @@ function KeywordBlock({ group }: { group: KeywordGroup }) {
 function Keywords({ report }: { report: CandidateReport }) {
   if (!report.keywords?.length) return null;
   return (
-    <details open className="group">
+    <details className="group">
       <SectionHeading icon={<TagIcon className="h-5 w-5" />}>
         Top job-search keywords
       </SectionHeading>
@@ -302,7 +302,7 @@ function NoteRow({ note }: { note: RecruiterNote }) {
 function RecruiterNotes({ report }: { report: CandidateReport }) {
   if (!report.recruiterNotes?.length) return null;
   return (
-    <details open className="group">
+    <details className="group">
       <SectionHeading icon={<NotesIcon className="h-5 w-5" />}>
         Recruiter notes
       </SectionHeading>
