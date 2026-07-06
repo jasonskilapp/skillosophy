@@ -44,7 +44,7 @@ function SectionHeading({
   children: React.ReactNode;
 }) {
   return (
-    <summary className="flex items-center justify-between gap-2.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none group-open:mb-4">
+    <summary className="flex items-center justify-between gap-2.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none group-open:mb-4 px-3 py-2.5 -mx-3 rounded-lg bg-foundational-soft hover:bg-border transition-colors">
       <div className="flex items-center gap-2.5">
         <span className="text-muted">{icon}</span>
         <h2 className="text-lg font-semibold tracking-tight">{children}</h2>
