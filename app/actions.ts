@@ -879,6 +879,7 @@ export async function addCandidateNote(
   const candidateId = String(formData.get("candidateId") ?? "").trim();
   const content = String(formData.get("content") ?? "").trim();
   const tags = formData.getAll("tags") as string[];
+  const section = String(formData.get("section") ?? "").trim() || null;
 
   if (!candidateId) return { error: "Candidate ID is required." };
   if (!content) return { error: "Note content is required." };
@@ -904,6 +905,7 @@ export async function addCandidateNote(
     organization_id: session.organizationId,
     content,
     tags,
+    section,
     created_by: session.userId,
     created_by_name: session.name,
   });

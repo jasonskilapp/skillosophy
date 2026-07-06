@@ -30,6 +30,17 @@ export default async function CandidateDetailPage({
   const { summary, report } = result;
   const labels = orgLabels(session.orgType);
 
+  // Group notes by section; null/undefined section → "general" (bottom notes)
+  const notesBySection: Record<string, typeof notes> = {};
+  const generalNotes: typeof notes = [];
+  for (const note of notes) {
+    if (note.section) {
+      (notesBySection[note.section] ??= []).push(note);
+    } else {
+      generalNotes.push(note);
+    }
+  }
+
   return (
     <>
       <TopBar session={session} />
@@ -67,7 +78,7 @@ export default async function CandidateDetailPage({
         </div>
 
         {report ? (
-          <CandidateProfile report={report} />
+          <CandidateProfile report={report} candidateId={id} notesBySection={notesBySection} />
         ) : (
           <div className="rounded-xl border border-border bg-surface p-10 text-center">
             <p className="font-medium">Analysis not ready</p>
@@ -78,7 +89,7 @@ export default async function CandidateDetailPage({
           </div>
         )}
 
-        <CandidateNotes candidateId={id} initialNotes={notes} />
+        <CandidateNotes candidateId={id} initialNotes={generalNotes} />
       </main>
     </>
   );

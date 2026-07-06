@@ -226,6 +226,7 @@ export interface CandidateNote {
   candidateId: string;
   content: string;
   tags: NoteTag[];
+  section: string | null;
   createdByName: string | null;
   createdAt: string;
 }

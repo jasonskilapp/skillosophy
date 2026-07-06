@@ -230,7 +230,7 @@ export async function listCandidateNotes(
 
   const { data, error } = await supabase
     .from("candidate_notes")
-    .select("id, candidate_id, content, tags, created_by_name, created_at")
+    .select("id, candidate_id, content, tags, section, created_by_name, created_at")
     .eq("candidate_id", candidateId)
     .order("created_at", { ascending: false });
 
@@ -240,6 +240,7 @@ export async function listCandidateNotes(
     candidateId: n.candidate_id,
     content: n.content,
     tags: (n.tags ?? []) as NoteTag[],
+    section: n.section ?? null,
     createdByName: n.created_by_name,
     createdAt: n.created_at,
   }));

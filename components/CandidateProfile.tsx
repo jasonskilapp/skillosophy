@@ -1,4 +1,5 @@
 import type {
+  CandidateNote,
   CandidateReport,
   Industry,
   KeywordGroup,
@@ -6,6 +7,7 @@ import type {
   Skill,
   TargetRole,
 } from "@/lib/types";
+import SectionNotes from "./SectionNotes";
 import { compRange, initials, money, strengthMeta } from "@/lib/format";
 import {
   CheckIcon,
@@ -18,17 +20,27 @@ import {
   TargetIcon,
 } from "./icons";
 
+type NotesBySection = Record<string, CandidateNote[]>;
+
 /** The full recruiter-facing candidate dashboard, rendered from a report. */
-export default function CandidateProfile({ report }: { report: CandidateReport }) {
+export default function CandidateProfile({
+  report,
+  candidateId,
+  notesBySection,
+}: {
+  report: CandidateReport;
+  candidateId: string;
+  notesBySection: NotesBySection;
+}) {
   return (
     <div className="space-y-7">
       <ProfileHeader report={report} />
       <StatCards report={report} />
-      <SkillsProfile report={report} />
-      <IndustryFit report={report} />
-      <TargetRoles report={report} />
-      <Keywords report={report} />
-      <RecruiterNotes report={report} />
+      <SkillsProfile report={report} candidateId={candidateId} notes={notesBySection["skills"] ?? []} />
+      <IndustryFit report={report} candidateId={candidateId} notes={notesBySection["industry"] ?? []} />
+      <TargetRoles report={report} candidateId={candidateId} notes={notesBySection["roles"] ?? []} />
+      <Keywords report={report} candidateId={candidateId} notes={notesBySection["keywords"] ?? []} />
+      <RecruiterNotes report={report} candidateId={candidateId} notes={notesBySection["recruiter"] ?? []} />
       {report.estimatesNote && (
         <p className="text-xs text-muted px-1">{report.estimatesNote}</p>
       )}
@@ -137,7 +149,7 @@ function SkillCard({ title, skills }: { title: string; skills: Skill[] }) {
   );
 }
 
-function SkillsProfile({ report }: { report: CandidateReport }) {
+function SkillsProfile({ report, candidateId, notes }: { report: CandidateReport; candidateId: string; notes: CandidateNote[] }) {
   return (
     <details open className="group">
       <SectionHeading icon={<SkillsIcon className="h-5 w-5" />}>
@@ -147,6 +159,7 @@ function SkillsProfile({ report }: { report: CandidateReport }) {
         <SkillCard title="Hard skills" skills={report.skills.hard} />
         <SkillCard title="Soft skills" skills={report.skills.soft} />
       </div>
+      <SectionNotes candidateId={candidateId} section="skills" initialNotes={notes} />
     </details>
   );
 }
@@ -199,7 +212,7 @@ function IndustryCard({ industry }: { industry: Industry }) {
   );
 }
 
-function IndustryFit({ report }: { report: CandidateReport }) {
+function IndustryFit({ report, candidateId, notes }: { report: CandidateReport; candidateId: string; notes: CandidateNote[] }) {
   if (!report.industries?.length) return null;
   return (
     <details className="group">
@@ -211,6 +224,7 @@ function IndustryFit({ report }: { report: CandidateReport }) {
           <IndustryCard key={i} industry={ind} />
         ))}
       </div>
+      <SectionNotes candidateId={candidateId} section="industry" initialNotes={notes} />
     </details>
   );
 }
@@ -229,7 +243,7 @@ function RoleCard({ role }: { role: TargetRole }) {
   );
 }
 
-function TargetRoles({ report }: { report: CandidateReport }) {
+function TargetRoles({ report, candidateId, notes }: { report: CandidateReport; candidateId: string; notes: CandidateNote[] }) {
   if (!report.targetRoles?.length) return null;
   return (
     <details className="group">
@@ -241,6 +255,7 @@ function TargetRoles({ report }: { report: CandidateReport }) {
           <RoleCard key={i} role={r} />
         ))}
       </div>
+      <SectionNotes candidateId={candidateId} section="roles" initialNotes={notes} />
     </details>
   );
 }
@@ -265,7 +280,7 @@ function KeywordBlock({ group }: { group: KeywordGroup }) {
   );
 }
 
-function Keywords({ report }: { report: CandidateReport }) {
+function Keywords({ report, candidateId, notes }: { report: CandidateReport; candidateId: string; notes: CandidateNote[] }) {
   if (!report.keywords?.length) return null;
   return (
     <details className="group">
@@ -277,6 +292,7 @@ function Keywords({ report }: { report: CandidateReport }) {
           <KeywordBlock key={i} group={g} />
         ))}
       </div>
+      <SectionNotes candidateId={candidateId} section="keywords" initialNotes={notes} />
     </details>
   );
 }
@@ -299,7 +315,7 @@ function NoteRow({ note }: { note: RecruiterNote }) {
   );
 }
 
-function RecruiterNotes({ report }: { report: CandidateReport }) {
+function RecruiterNotes({ report, candidateId, notes }: { report: CandidateReport; candidateId: string; notes: CandidateNote[] }) {
   if (!report.recruiterNotes?.length) return null;
   return (
     <details className="group">
@@ -311,6 +327,7 @@ function RecruiterNotes({ report }: { report: CandidateReport }) {
           <NoteRow key={i} note={n} />
         ))}
       </ul>
+      <SectionNotes candidateId={candidateId} section="recruiter" initialNotes={notes} />
     </details>
   );
 }
