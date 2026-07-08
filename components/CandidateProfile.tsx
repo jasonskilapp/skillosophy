@@ -8,6 +8,7 @@ import type {
   TargetRole,
 } from "@/lib/types";
 import SectionNotes from "./SectionNotes";
+import SkillsSelector from "./SkillsSelector";
 import { compRange, initials, money, strengthMeta } from "@/lib/format";
 import {
   CheckIcon,
@@ -155,10 +156,7 @@ function SkillsProfile({ report, candidateId, notes }: { report: CandidateReport
       <SectionHeading icon={<SkillsIcon className="h-5 w-5" />}>
         Skills profile
       </SectionHeading>
-      <div className="grid gap-4 md:grid-cols-2">
-        <SkillCard title="Hard skills" skills={report.skills.hard} />
-        <SkillCard title="Soft skills" skills={report.skills.soft} />
-      </div>
+      <SkillsSelector hard={report.skills.hard} soft={report.skills.soft} />
       <SectionNotes candidateId={candidateId} section="skills" initialNotes={notes} />
     </details>
   );
