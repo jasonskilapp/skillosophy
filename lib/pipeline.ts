@@ -1,4 +1,4 @@
-import { analyzeResume } from "./anthropic";
+import { analyzeResume, analyzeResumeFromPdf } from "./anthropic";
 import { RESUME_BUCKET, isAnthropicConfigured } from "./config";
 import { extractResumeText, hasUsableText } from "./extract";
 import { createSupabaseAdminClient } from "./supabase/server";
@@ -88,9 +88,15 @@ async function produceReport(
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const text = await extractResumeText(buffer, fileName);
+
   if (!hasUsableText(text)) {
+    // Scanned / image-based PDF — send the raw file to Claude's vision instead.
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith(".pdf")) {
+      return analyzeResumeFromPdf(buffer, { name });
+    }
     throw new Error(
-      "Couldn't read enough text from this file. If it's a scanned PDF, please upload a text-based PDF or Word document.",
+      "Couldn't read enough text from this file. Please upload a text-based PDF or Word document.",
     );
   }
 

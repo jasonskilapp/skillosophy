@@ -35,6 +35,47 @@ export async function analyzeResume(
     .map((b) => b.text)
     .join("");
 
+  return normalizeReport(parseJson(raw), ctx);
+}
+
+/**
+ * Analyse a scanned or image-based PDF by sending it directly to Claude as a
+ * document block. Used as a fallback when text extraction yields too little text.
+ */
+export async function analyzeResumeFromPdf(
+  pdfBuffer: Buffer,
+  ctx: ResumeContext,
+): Promise<CandidateReport> {
+  if (!anthropicApiKey) {
+    throw new Error("ANTHROPIC_API_KEY is not configured.");
+  }
+
+  const client = new Anthropic({ apiKey: anthropicApiKey });
+  const base64 = pdfBuffer.toString("base64");
+
+  const response = await client.messages.create({
+    model: anthropicModel,
+    max_tokens: 8000,
+    system: ANALYSIS_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "document",
+            source: { type: "base64", media_type: "application/pdf", data: base64 },
+          } as Anthropic.DocumentBlockParam,
+          { type: "text", text: buildUserMessage("", ctx) },
+        ],
+      },
+    ],
+  });
+
+  const raw = response.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+
   const parsed = parseJson(raw);
   return normalizeReport(parsed, ctx);
 }
