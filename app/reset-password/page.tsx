@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
+  const searchParams = useSearchParams();
+  const linkExpired = searchParams.get("error") === "expired";
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
@@ -42,9 +45,15 @@ export default function ResetPasswordPage() {
           </p>
         </div>
 
+        {linkExpired && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            That reset link has expired or already been used. Request a new one below.
+          </div>
+        )}
+
         <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
           {state === "done" ? (
-            <p className="text-sm text-center text-muted py-2">
+            <p className="py-2 text-center text-sm text-muted">
               Check your email — a reset link is on its way.
             </p>
           ) : (
@@ -60,7 +69,7 @@ export default function ResetPasswordPage() {
                   autoComplete="email"
                   required
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-primary"
                 />
               </div>
@@ -77,11 +86,19 @@ export default function ResetPasswordPage() {
         </div>
 
         <p className="mt-4 text-center text-xs text-muted">
-          <Link href="/login" className="hover:text-foreground transition-colors">
+          <Link href="/login" className="transition-colors hover:text-foreground">
             ← Back to sign in
           </Link>
         </p>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
