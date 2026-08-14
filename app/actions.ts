@@ -805,17 +805,10 @@ export async function submitResume(
     return { error: insertError?.message ?? "Could not save the upload." };
   }
 
-  // Trigger analysis in a dedicated long-running API route so Vercel doesn't
-  // kill it when this server action returns.
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    (process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000");
-  void fetch(`${siteUrl}/api/analyze/${row.id}`, {
-    method: "POST",
-    headers: { "x-analyze-secret": process.env.ANALYZE_SECRET ?? "" },
-  }).catch(() => {});
+  // Schedule analysis to run after the response is sent to the client.
+  // next/server `after` is the correct API for post-response work on Vercel.
+  const { after } = await import("next/server");
+  after(() => runAnalysis(row.id));
 
   return {
     ok: true,
