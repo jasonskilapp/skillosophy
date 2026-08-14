@@ -1,17 +1,19 @@
 /**
- * The resume-analysis prompt. This is the v7 "Canadian Resume Analysis" prompt
- * (the attached Word document) adapted to return a single structured JSON object
- * that maps directly onto the `CandidateReport` type / dashboard UI.
- *
- * The analytical instructions are unchanged in substance from v7; only the output
- * format is constrained to JSON, and a headline-stats step is added to populate
- * the stat cards at the top of the profile.
+ * The resume-analysis prompt. Parts 1–5 are the v7 "Canadian Resume Analysis"
+ * adapted to return structured JSON. Part 6 (newcomer credential pathway) is
+ * the v8 addition — it is only appended when the org type is "newcomer".
  */
+
+import type { OrgType } from "./types";
 
 export interface ResumeContext {
   /** Candidate name if known from the invite (the model may refine from resume). */
   name?: string;
+  /** When set to "newcomer", Part 6 (credential recognition pathway) is appended. */
+  orgType?: OrgType | null;
 }
+
+// ── Parts 1–5 system prompt (unchanged from v7) ───────────────────────────────
 
 export const ANALYSIS_SYSTEM_PROMPT = `You are a senior Canadian career analyst. Read the resume provided and produce a structured analysis. Your goal: help a recruiter understand every skill the candidate actually has and where it came from, prove those skills using the resume, identify which industries fit them — including ones they haven't considered — recommend what level and type of role they should target, and give job-search keywords.
 
@@ -52,18 +54,60 @@ Give 4–6 short notes for the recruiter: positive signals (tone "positive") and
 
 COMPENSATION: All figures are your best estimates from Canadian market knowledge — you cannot browse live data. Keep them realistic.`;
 
-export const ANALYSIS_JSON_INSTRUCTIONS = `Return your analysis as a SINGLE JSON object and NOTHING else — no prose, no markdown code fences. It must match this TypeScript shape exactly:
+// ── Part 6 system prompt (newcomer orgs only) ─────────────────────────────────
 
-{
+const NEWCOMER_PATHWAY_PROMPT = `
+PART 6 — CREDENTIAL RECOGNITION & CANADIAN LICENSING PATHWAY
+This candidate is being supported by a newcomer services organization. After completing Parts 1–5, produce a complete credential recognition and licensing pathway showing exactly how this candidate can practise at the equivalent or superior level in Canada.
+
+6A — PROFESSION & REGULATORY STATUS
+Identify the core profession from the resume. Determine whether it is regulated in Canada (provincially, federally, or not at all). Name the 1–2 provinces with the strongest demand for this profession based on Canadian job market knowledge.
+
+6B — EDUCATIONAL CREDENTIAL ASSESSMENT
+Route to the correct body — do NOT use generic ECA organizations for professions with their own designated assessment body:
+  Nursing (RN/RPN)  → NNAS (nnas.ca) — provincial colleges require the NNAS Advisory Report, not a WES report
+  Medicine (MD)     → MCC (mcc.ca) — MCCQE Part I, Part II, and NAC Exam for IMGs
+  Pharmacy          → PEBC (pebc.ca) — Evaluating Exam then Qualifying Exams (QE1 + QE2)
+  Dentistry         → NDEB (ndeb.ca) — written exam, OSCE, possible bridging
+  Engineering       → WES (wes.org/ca) for immigration + provincial body for P.Eng.: PEO (ON) / APEGA (AB) / EGBC (BC)
+  Law               → NCA (flsc.ca/nca) — gap-based exam assignments
+  Accounting        → CPA Canada Prior Learning Assessment (cpacanada.ca)
+  Teaching          → OCT (oct.ca) in Ontario; provincial body elsewhere
+  Trades            → Red Seal Program (red-seal.ca)
+  Unregulated/other → WES (wes.org/ca)
+Provide: organization name, URL, why this body, estimated cost in CAD, processing time, and the specific documents this candidate will need.
+
+6C — LICENSING & REGISTRATION
+For each target province: regulatory body name and website, registration requirements list, licensing exam name and format, exam fee, pass rate for internationally educated applicants (where known), application fee, and annual renewal fee.
+
+6D — LANGUAGE PROFICIENCY
+State whether a formal language test is required for licensure AND for immigration.
+  Health professions: IELTS Academic (min 7.0 each band) OR CELBAN (CLB 8 L/R, CLB 7 W/S for nursing) OR OET (Grade B each skill)
+  Engineering/other regulated: typically IELTS CLB 7+ — confirm with provincial body
+  Immigration (Express Entry): IELTS General Training or CELPIP — CLB 7 each band
+Note any exemption if the candidate completed their degree in English.
+
+6E — BRIDGING PROGRAMS
+Assess whether a bridging program will likely be required (yes / possibly / unlikely) based on the candidate's country of training and typical gap for their profession. Provide 2–3 specific programs with institution, province, delivery mode, duration, cost (flag government subsidies), what gap it closes, eligibility, and URL.
+
+6F — FULL PATHWAY STEP BY STEP
+Produce a numbered checklist from the candidate's current role → Canadian equivalent. For each step: the action, timeline estimate, cost in CAD, and a 2-sentence explanation of what happens and what the candidate receives at the end. Steps must cover: ECA → language test → college/regulatory body application → bridging (if required) → licensing exam → registration → first Canadian position. Include a starting point, target role, total timeline estimate, and total cost estimate.
+
+6G — SUPERIOR ROLE PATHWAY
+Based on total experience and specialization in the resume, identify 1–2 roles the candidate could target ABOVE the direct equivalent Canadian position once licensed. For each: title, eligibility path (what's needed beyond initial licensure), timeline from initial registration, estimated compensation for the equivalent role (low/median/high CAD), and estimated compensation for the superior role (low/median/high CAD).`;
+
+// ── JSON schema instructions ──────────────────────────────────────────────────
+
+const PARTS_1_5_JSON = `{
   "contact": {
     "name": string,
     "location"?: string,
     "email"?: string,
     "phone"?: string,
-    "headline"?: string   // a short target-role tagline, e.g. "Sr. Application Support Specialist"
+    "headline"?: string
   },
   "careerStage": "Early Career" | "Developing" | "Established" | "Senior",
-  "headlineStats": [ { "value": string, "label": string, "sublabel": string } ],   // 3-4 items
+  "headlineStats": [ { "value": string, "label": string, "sublabel": string } ],
   "skills": {
     "hard": [ { "name": string, "strength": "Foundational"|"Competent"|"Proficient"|"Expert", "source"?: string, "evidence"?: string } ],
     "soft": [ { "name": string, "strength": "Foundational"|"Competent"|"Proficient"|"Expert", "source"?: string, "evidence"?: string } ]
@@ -74,7 +118,7 @@ export const ANALYSIS_JSON_INSTRUCTIONS = `Return your analysis as a SINGLE JSON
     "whyItFits": string,
     "demandSignal"?: string,
     "whatItOpens"?: string,
-    "comp"?: { "low": number, "median"?: number, "high": number, "region"?: string, "note"?: string }
+    "comp"?: { "low": number, "median"?: number, "high": number, "region"?: string }
   } ],
   "targetRoles": [ {
     "title": string,
@@ -85,13 +129,107 @@ export const ANALYSIS_JSON_INSTRUCTIONS = `Return your analysis as a SINGLE JSON
   } ],
   "keywords": [ { "industry": string, "terms": string[] } ],
   "recruiterNotes": [ { "tone": "positive" | "caution", "text": string } ]
+}`;
+
+const NEWCOMER_PATHWAY_JSON = `  "newcomerPathway": {
+    "regulatoryStatus": {
+      "profession": string,
+      "countryOfTraining": string,
+      "regulatedStatus": "provincial" | "federal" | "unregulated",
+      "targetProvinces": string[]
+    },
+    "eca": {
+      "organization": string,
+      "url": string,
+      "reason": string,
+      "estimatedCostCAD": string,
+      "processingTime": string,
+      "documentsRequired": string[]
+    },
+    "licensing": [ {
+      "province": string,
+      "regulatoryBody": string,
+      "website": string,
+      "registrationRequirements": string[],
+      "examName": string,
+      "examFormat": string,
+      "examFee": string,
+      "passRateIEP": string,
+      "applicationFee": string,
+      "annualRenewal": string
+    } ],
+    "language": {
+      "recommendedTest": string,
+      "minimumScores": string,
+      "feeCAD": string,
+      "bookingUrl": string,
+      "validity": string,
+      "exemptionNote": string
+    },
+    "bridging": {
+      "required": "yes" | "possibly" | "unlikely",
+      "reason": string,
+      "programs": [ {
+        "name": string,
+        "institution": string,
+        "province": string,
+        "delivery": string,
+        "duration": string,
+        "costCAD": string,
+        "gapAddressed": string,
+        "eligibility": string,
+        "url": string
+      } ],
+      "governmentFundingNote": string
+    },
+    "fullPath": {
+      "startingPoint": string,
+      "targetRole": string,
+      "totalTimeline": string,
+      "totalCostCAD": string,
+      "steps": [ {
+        "action": string,
+        "timeline": string,
+        "costCAD": string,
+        "explanation": string
+      } ]
+    },
+    "superiorRoles": [ {
+      "title": string,
+      "eligibilityPath": string[],
+      "timelineFromRegistration": string,
+      "equivalentRoleComp": string,
+      "superiorRoleComp": string
+    } ]
+  }`;
+
+export function buildSystemPrompt(orgType?: OrgType | null): string {
+  if (orgType === "newcomer") {
+    return ANALYSIS_SYSTEM_PROMPT + "\n" + NEWCOMER_PATHWAY_PROMPT;
+  }
+  return ANALYSIS_SYSTEM_PROMPT;
 }
 
-Compensation numbers are plain integers in CAD (e.g. 95000, not "$95K"). Output only the JSON object.`;
+export function buildJsonInstructions(orgType?: OrgType | null): string {
+  const base = `Return your analysis as a SINGLE JSON object and NOTHING else — no prose, no markdown code fences. Compensation numbers are plain integers in CAD (e.g. 95000, not "$95K"). Output only the JSON object.\n\n`;
+
+  if (orgType === "newcomer") {
+    // Insert newcomerPathway before the closing brace
+    const schema = PARTS_1_5_JSON.slice(0, -1) + `,\n${NEWCOMER_PATHWAY_JSON}\n}`;
+    return base + schema;
+  }
+  return base + PARTS_1_5_JSON;
+}
 
 export function buildUserMessage(resumeText: string, ctx: ResumeContext): string {
   const nameHint = ctx.name
     ? `The recruiter recorded the candidate's name as "${ctx.name}" — use it unless the resume clearly states a different name.\n\n`
     : "";
-  return `${nameHint}Analyze the following resume.\n\n--- RESUME START ---\n${resumeText}\n--- RESUME END ---\n\n${ANALYSIS_JSON_INSTRUCTIONS}`;
+  const resumeSection = resumeText
+    ? `Analyze the following resume.\n\n--- RESUME START ---\n${resumeText}\n--- RESUME END ---\n\n`
+    : "Analyze the resume in the attached document.\n\n";
+  return `${nameHint}${resumeSection}${buildJsonInstructions(ctx.orgType)}`;
 }
+
+// Keep old export for any callers that haven't been updated yet
+export const ANALYSIS_JSON_INSTRUCTIONS = buildJsonInstructions();

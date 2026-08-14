@@ -299,6 +299,8 @@ export interface CandidateSummary {
   ownerName?: string | null;
   /** Recruiter workflow status, independent of the AI pipeline status. */
   workflowStatus?: WorkflowStatus | null;
+  /** Set when the profile has been archived (soft-deleted). */
+  archivedAt?: string | null;
 }
 
 export type WorkflowStatus =

@@ -1,23 +1,37 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { anthropicApiKey, anthropicModel } from "./config";
 import {
-  ANALYSIS_SYSTEM_PROMPT,
+  buildSystemPrompt,
   buildUserMessage,
   type ResumeContext,
 } from "./prompt";
-import type { CandidateReport, Strength } from "./types";
+import type {
+  CandidateReport,
+  NewcomerPathway,
+  PathwayBridgingProgram,
+  PathwayProvinceLicensing,
+  PathwayStep,
+  PathwaySuperiorRole,
+  Strength,
+} from "./types";
 
 const ESTIMATES_NOTE =
   "Compensation figures are model estimates based on Canadian market knowledge, not live Job Bank data.";
 
+export interface AnalysisResult {
+  report: CandidateReport;
+  pathway: NewcomerPathway | null;
+}
+
 /**
- * Run the resume analysis through Claude and return a validated CandidateReport.
+ * Run the resume analysis through Claude and return a validated report and
+ * optional newcomer pathway (when ctx.orgType === "newcomer").
  * Throws if the API key is missing or the model output can't be parsed.
  */
 export async function analyzeResume(
   resumeText: string,
   ctx: ResumeContext,
-): Promise<CandidateReport> {
+): Promise<AnalysisResult> {
   if (!anthropicApiKey) {
     throw new Error("ANTHROPIC_API_KEY is not configured.");
   }
@@ -26,7 +40,7 @@ export async function analyzeResume(
   const response = await client.messages.create({
     model: anthropicModel,
     max_tokens: 8000,
-    system: ANALYSIS_SYSTEM_PROMPT,
+    system: buildSystemPrompt(ctx.orgType),
     messages: [{ role: "user", content: buildUserMessage(resumeText, ctx) }],
   });
 
@@ -35,7 +49,11 @@ export async function analyzeResume(
     .map((b) => b.text)
     .join("");
 
-  return normalizeReport(parseJson(raw), ctx);
+  const parsed = parseJson(raw);
+  return {
+    report: normalizeReport(parsed, ctx),
+    pathway: ctx.orgType === "newcomer" ? normalizePathway(parsed) : null,
+  };
 }
 
 /**
@@ -45,7 +63,7 @@ export async function analyzeResume(
 export async function analyzeResumeFromPdf(
   pdfBuffer: Buffer,
   ctx: ResumeContext,
-): Promise<CandidateReport> {
+): Promise<AnalysisResult> {
   if (!anthropicApiKey) {
     throw new Error("ANTHROPIC_API_KEY is not configured.");
   }
@@ -56,7 +74,7 @@ export async function analyzeResumeFromPdf(
   const response = await client.messages.create({
     model: anthropicModel,
     max_tokens: 8000,
-    system: ANALYSIS_SYSTEM_PROMPT,
+    system: buildSystemPrompt(ctx.orgType),
     messages: [
       {
         role: "user",
@@ -77,7 +95,10 @@ export async function analyzeResumeFromPdf(
     .join("");
 
   const parsed = parseJson(raw);
-  return normalizeReport(parsed, ctx);
+  return {
+    report: normalizeReport(parsed, ctx),
+    pathway: ctx.orgType === "newcomer" ? normalizePathway(parsed) : null,
+  };
 }
 
 /** Extract a JSON object from the model output, tolerating stray fences/prose. */
@@ -186,5 +207,139 @@ function normalizeComp(v: unknown) {
     median: Number.isFinite(median) ? median : undefined,
     region: c.region ? String(c.region) : undefined,
     note: c.note ? String(c.note) : undefined,
+  };
+}
+
+function str(v: unknown, fallback = ""): string {
+  return v != null ? String(v) : fallback;
+}
+
+function normalizePathway(data: unknown): NewcomerPathway | null {
+  const d = (data ?? {}) as Record<string, unknown>;
+  const p = d.newcomerPathway as Record<string, unknown> | undefined;
+  if (!p || typeof p !== "object") return null;
+
+  const asArray = (v: unknown): Record<string, unknown>[] =>
+    Array.isArray(v) ? (v as Record<string, unknown>[]) : [];
+
+  const rs = p.regulatoryStatus as Record<string, unknown> | undefined;
+  const eca = p.eca as Record<string, unknown> | undefined;
+  const lang = p.language as Record<string, unknown> | undefined;
+  const bridgeRaw = p.bridging as Record<string, unknown> | undefined;
+  const fpRaw = p.fullPath as Record<string, unknown> | undefined;
+
+  const regulated = rs?.regulatedStatus;
+  const regulatedStatus =
+    regulated === "federal" || regulated === "unregulated"
+      ? (regulated as "federal" | "unregulated")
+      : "provincial";
+
+  const bridgeRequired = bridgeRaw?.required;
+  const bridgingRequired =
+    bridgeRequired === "yes" || bridgeRequired === "unlikely"
+      ? (bridgeRequired as "yes" | "unlikely")
+      : "possibly";
+
+  return {
+    id: "",
+    candidateId: "",
+    regulatoryStatus: rs
+      ? {
+          profession: str(rs.profession),
+          countryOfTraining: str(rs.countryOfTraining),
+          regulatedStatus,
+          targetProvinces: Array.isArray(rs.targetProvinces)
+            ? rs.targetProvinces.map(String)
+            : [],
+        }
+      : null,
+    eca: eca
+      ? {
+          organization: str(eca.organization),
+          url: str(eca.url),
+          reason: str(eca.reason),
+          estimatedCostCAD: str(eca.estimatedCostCAD),
+          processingTime: str(eca.processingTime),
+          documentsRequired: Array.isArray(eca.documentsRequired)
+            ? eca.documentsRequired.map(String)
+            : [],
+        }
+      : null,
+    licensing: asArray(p.licensing).map(
+      (l): PathwayProvinceLicensing => ({
+        province: str(l.province),
+        regulatoryBody: str(l.regulatoryBody),
+        website: str(l.website),
+        registrationRequirements: Array.isArray(l.registrationRequirements)
+          ? l.registrationRequirements.map(String)
+          : [],
+        examName: str(l.examName),
+        examFormat: str(l.examFormat),
+        examFee: str(l.examFee),
+        passRateIEP: str(l.passRateIEP),
+        applicationFee: str(l.applicationFee),
+        annualRenewal: str(l.annualRenewal),
+      }),
+    ),
+    language: lang
+      ? {
+          recommendedTest: str(lang.recommendedTest),
+          minimumScores: str(lang.minimumScores),
+          feeCAD: str(lang.feeCAD),
+          bookingUrl: str(lang.bookingUrl),
+          validity: str(lang.validity),
+          exemptionNote: str(lang.exemptionNote),
+        }
+      : null,
+    bridging: bridgeRaw
+      ? {
+          required: bridgingRequired,
+          reason: str(bridgeRaw.reason),
+          programs: asArray(bridgeRaw.programs).map(
+            (prog): PathwayBridgingProgram => ({
+              name: str(prog.name),
+              institution: str(prog.institution),
+              province: str(prog.province),
+              delivery: str(prog.delivery),
+              duration: str(prog.duration),
+              costCAD: str(prog.costCAD),
+              gapAddressed: str(prog.gapAddressed),
+              eligibility: str(prog.eligibility),
+              url: str(prog.url),
+            }),
+          ),
+          governmentFundingNote: str(bridgeRaw.governmentFundingNote),
+        }
+      : null,
+    fullPath: fpRaw
+      ? {
+          startingPoint: str(fpRaw.startingPoint),
+          targetRole: str(fpRaw.targetRole),
+          totalTimeline: str(fpRaw.totalTimeline),
+          totalCostCAD: str(fpRaw.totalCostCAD),
+          steps: asArray(fpRaw.steps).map(
+            (s): PathwayStep => ({
+              action: str(s.action),
+              timeline: str(s.timeline),
+              costCAD: str(s.costCAD),
+              explanation: str(s.explanation),
+            }),
+          ),
+        }
+      : null,
+    superiorRoles: asArray(p.superiorRoles).map(
+      (sr): PathwaySuperiorRole => ({
+        title: str(sr.title),
+        eligibilityPath: Array.isArray(sr.eligibilityPath)
+          ? sr.eligibilityPath.map(String)
+          : [],
+        timelineFromRegistration: str(sr.timelineFromRegistration),
+        equivalentRoleComp: str(sr.equivalentRoleComp),
+        superiorRoleComp: str(sr.superiorRoleComp),
+      }),
+    ),
+    aiGeneratedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    updatedByName: null,
   };
 }

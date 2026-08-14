@@ -1,22 +1,36 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import CandidateTile from "@/components/CandidateTile";
+import ArchivedCandidateTile from "@/components/ArchivedCandidateTile";
 import InviteCreator from "@/components/InviteCreator";
 import { getSession, orgLabels } from "@/lib/auth";
-import { listCandidatesForSession } from "@/lib/data";
+import { listCandidatesForSession, listArchivedCandidatesForSession } from "@/lib/data";
 import { dayKey, dayLabel } from "@/lib/format";
 import type { CandidateSummary } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.accountType !== "org_member") redirect("/");
 
+  const { view } = await searchParams;
+  const showArchived = view === "archived";
+
   const labels = orgLabels(session.orgType);
-  const candidates = await listCandidatesForSession(session);
-  const groups = groupByDay(candidates);
+  const [candidates, archivedCandidates] = await Promise.all([
+    listCandidatesForSession(session),
+    listArchivedCandidatesForSession(session),
+  ]);
+
+  const displayed = showArchived ? archivedCandidates : candidates;
+  const groups = showArchived ? groupByDay(archivedCandidates) : groupByDay(candidates);
   const scope = session.orgRole === "org_admin" ? "your organization" : "you";
 
   return (
@@ -32,15 +46,49 @@ export default async function DashboardPage() {
               Resumes uploaded for {scope}, newest first.
             </p>
           </div>
-          <p className="text-sm text-muted">{candidates.length} total</p>
+          <p className="text-sm text-muted">{displayed.length} total</p>
         </div>
 
-        <div className="mb-8">
-          <InviteCreator candidateLabel={labels.candidate} />
+        {/* Tabs */}
+        <div className="mb-6 flex items-center gap-1 border-b border-border">
+          <Link
+            href="/dashboard"
+            className={`px-4 pb-3 text-sm font-medium transition ${
+              !showArchived
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted hover:text-foreground"
+            }`}
+          >
+            Active
+            <span className="ml-2 rounded-full bg-surface-raised px-1.5 py-0.5 text-xs font-normal text-muted">
+              {candidates.length}
+            </span>
+          </Link>
+          <Link
+            href="/dashboard?view=archived"
+            className={`px-4 pb-3 text-sm font-medium transition ${
+              showArchived
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted hover:text-foreground"
+            }`}
+          >
+            Archived
+            {archivedCandidates.length > 0 && (
+              <span className="ml-2 rounded-full bg-surface-raised px-1.5 py-0.5 text-xs font-normal text-muted">
+                {archivedCandidates.length}
+              </span>
+            )}
+          </Link>
         </div>
+
+        {!showArchived && (
+          <div className="mb-8">
+            <InviteCreator candidateLabel={labels.candidate} />
+          </div>
+        )}
 
         {groups.length === 0 ? (
-          <EmptyState candidateLabel={labels.candidate.toLowerCase()} />
+          <EmptyState showArchived={showArchived} candidateLabel={labels.candidate.toLowerCase()} />
         ) : (
           <div className="space-y-8">
             {groups.map((group) => (
@@ -52,9 +100,17 @@ export default async function DashboardPage() {
                   </span>
                 </h2>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.items.map((c) => (
-                    <CandidateTile key={c.id} candidate={c} />
-                  ))}
+                  {group.items.map((c) =>
+                    showArchived ? (
+                      <ArchivedCandidateTile
+                        key={c.id}
+                        candidate={c}
+                        isAdmin={session.orgRole === "org_admin"}
+                      />
+                    ) : (
+                      <CandidateTile key={c.id} candidate={c} />
+                    ),
+                  )}
                 </div>
               </section>
             ))}
@@ -81,7 +137,24 @@ function groupByDay(candidates: CandidateSummary[]) {
     }));
 }
 
-function EmptyState({ candidateLabel }: { candidateLabel: string }) {
+function EmptyState({
+  showArchived,
+  candidateLabel,
+}: {
+  showArchived: boolean;
+  candidateLabel: string;
+}) {
+  if (showArchived) {
+    return (
+      <div className="rounded-xl border border-dashed border-border-strong bg-surface p-10 text-center">
+        <p className="font-medium">No archived profiles</p>
+        <p className="mt-1 text-sm text-muted">
+          Profiles you archive will appear here. You can restore or permanently
+          delete them from the profile page.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="rounded-xl border border-dashed border-border-strong bg-surface p-10 text-center">
       <p className="font-medium">No resumes yet</p>

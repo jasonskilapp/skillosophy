@@ -48,9 +48,10 @@ export async function listCandidatesForSession(
   let query = supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status, archived_at",
     )
     .eq("organization_id", session.organizationId)
+    .is("archived_at", null)
     .order("uploaded_at", { ascending: false });
 
   // Members see only their own candidates; org admins see the whole org.
@@ -74,11 +75,36 @@ export async function listCandidatesForMember(
   const { data, error } = await supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status, archived_at",
     )
     .eq("organization_id", orgId)
     .eq("recruiter_id", recruiterId)
+    .is("archived_at", null)
     .order("uploaded_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(rowToSummary);
+}
+
+export async function listArchivedCandidatesForSession(
+  session: Session,
+): Promise<CandidateSummary[]> {
+  if (appMode === "mock") return [];
+  if (!session.organizationId) return [];
+  const supabase = createSupabaseAdminClient();
+  let query = supabase
+    .from("candidates")
+    .select(
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status, archived_at",
+    )
+    .eq("organization_id", session.organizationId)
+    .not("archived_at", "is", null)
+    .order("archived_at", { ascending: false });
+
+  if (session.orgRole === "member") {
+    query = query.eq("recruiter_id", session.userId);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []).map(rowToSummary);
 }
@@ -101,7 +127,7 @@ export async function getCandidate(
   const { data, error } = await supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report, workflow_status",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report, workflow_status, archived_at",
     )
     .eq("id", id)
     .single();
@@ -530,6 +556,7 @@ type CandidateRow = {
   organization_id: string | null;
   recruiter_name: string | null;
   workflow_status?: string | null;
+  archived_at?: string | null;
 };
 
 function rowToSummary(row: CandidateRow): CandidateSummary {
@@ -543,6 +570,7 @@ function rowToSummary(row: CandidateRow): CandidateSummary {
     organizationId: row.organization_id,
     ownerName: row.recruiter_name,
     workflowStatus: (row.workflow_status as WorkflowStatus | null) ?? null,
+    archivedAt: row.archived_at ?? null,
   };
 }
 

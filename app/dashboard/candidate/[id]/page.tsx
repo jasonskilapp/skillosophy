@@ -5,6 +5,7 @@ import CandidateProfile from "@/components/CandidateProfile";
 import WorkflowStatusSelector from "@/components/WorkflowStatusSelector";
 import CandidateNotes from "@/components/CandidateNotes";
 import NewcomerPathwayPanel from "@/components/NewcomerPathway";
+import CandidateActions from "@/components/CandidateActions";
 import { ArrowLeftIcon, CalendarIcon, ClockIcon } from "@/components/icons";
 import { getSession, orgLabels } from "@/lib/auth";
 import { getCandidate, listCandidateNotes, getPathway } from "@/lib/data";
@@ -58,20 +59,34 @@ export default async function CandidateDetailPage({
             <ArrowLeftIcon className="h-4 w-4" />
             Back to {labels.candidates.toLowerCase()}
           </Link>
-          <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
-            <span className="inline-flex items-center gap-1.5">
-              <ClockIcon className="h-3.5 w-3.5" />
-              Uploaded {formatDateTime(summary.uploadedAt)}
-            </span>
-            {summary.meetingDate && (
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
               <span className="inline-flex items-center gap-1.5">
-                <CalendarIcon className="h-3.5 w-3.5" />
-                {labels.meeting[0].toUpperCase() + labels.meeting.slice(1)}{" "}
-                {formatDate(summary.meetingDate)}
+                <ClockIcon className="h-3.5 w-3.5" />
+                Uploaded {formatDateTime(summary.uploadedAt)}
               </span>
-            )}
+              {summary.meetingDate && (
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  {labels.meeting[0].toUpperCase() + labels.meeting.slice(1)}{" "}
+                  {formatDate(summary.meetingDate)}
+                </span>
+              )}
+            </div>
+            <CandidateActions
+              candidateId={id}
+              isAdmin={session.orgRole === "org_admin"}
+              isArchived={!!summary.archivedAt}
+            />
           </div>
         </div>
+
+        {/* Archived banner */}
+        {summary.archivedAt && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            This profile is archived. Restore it to make it visible on the dashboard.
+          </div>
+        )}
 
         {/* Workflow status bar */}
         <div className="mb-6 flex items-center rounded-lg border border-border bg-surface px-4 py-3">

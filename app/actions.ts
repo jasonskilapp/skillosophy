@@ -991,3 +991,80 @@ export async function savePathwaySection(
   revalidatePath(`/dashboard/candidate/${candidateId}`);
   return { ok: true };
 }
+
+// ── Archive / Delete ──────────────────────────────────────────────────────────
+
+/**
+ * Archive (soft-delete) or restore a candidate profile.
+ * Members can only archive their own candidates; admins can archive any in the org.
+ */
+export async function archiveCandidate(
+  candidateId: string,
+  archive: boolean,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") return { error: "Not authorized." };
+
+  const admin = createSupabaseAdminClient();
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) {
+    return { error: "Not authorized." };
+  }
+
+  const { error } = await admin
+    .from("candidates")
+    .update({ archived_at: archive ? new Date().toISOString() : null })
+    .eq("id", candidateId);
+
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/candidate/${candidateId}`);
+  return { ok: true };
+}
+
+/**
+ * Permanently delete a candidate profile (org admin only).
+ * Removes the resume file from storage and hard-deletes the row (notes,
+ * pathway, and workflow records are removed via CASCADE).
+ */
+export async function deleteCandidate(
+  candidateId: string,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member" || session.orgRole !== "org_admin") {
+    return { error: "Only org admins can permanently delete profiles." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, file_path")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+
+  // Clean up storage file if it wasn't already deleted after analysis.
+  if (candidate.file_path) {
+    await admin.storage.from(RESUME_BUCKET).remove([candidate.file_path as string]);
+  }
+
+  const { error } = await admin.from("candidates").delete().eq("id", candidateId);
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
