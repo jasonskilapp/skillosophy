@@ -805,7 +805,15 @@ export async function submitResume(
     return { error: insertError?.message ?? "Could not save the upload." };
   }
 
-  void runAnalysis(row.id).catch(() => {});
+  // Trigger analysis in a dedicated long-running API route so Vercel doesn't
+  // kill it when this server action returns.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
+  void fetch(`${siteUrl}/api/analyze/${row.id}`, {
+    method: "POST",
+    headers: { "x-analyze-secret": process.env.ANALYZE_SECRET ?? "" },
+  }).catch(() => {});
 
   return {
     ok: true,
