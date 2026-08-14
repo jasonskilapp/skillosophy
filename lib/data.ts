@@ -12,6 +12,7 @@ import type {
   CandidateNote,
   CandidateReport,
   CandidateSummary,
+  NewcomerPathway,
   NoteTag,
   OrgNote,
   OrgSummary,
@@ -244,6 +245,50 @@ export async function listCandidateNotes(
     createdByName: n.created_by_name,
     createdAt: n.created_at,
   }));
+}
+
+export async function getPathway(
+  candidateId: string,
+  session: Session,
+): Promise<NewcomerPathway | null> {
+  if (appMode === "mock") return null;
+  if (!session.organizationId) return null;
+
+  const supabase = createSupabaseAdminClient();
+
+  // Verify candidate is in this org and the session has visibility.
+  const { data: candidate } = await supabase
+    .from("candidates")
+    .select("organization_id, recruiter_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) return null;
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) return null;
+
+  const { data, error } = await supabase
+    .from("candidate_pathway")
+    .select("*")
+    .eq("candidate_id", candidateId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    candidateId: data.candidate_id,
+    regulatoryStatus: data.regulatory_status ?? null,
+    eca: data.eca ?? null,
+    licensing: data.licensing ?? [],
+    language: data.language_proficiency ?? null,
+    bridging: data.bridging ?? null,
+    fullPath: data.full_path ?? null,
+    superiorRoles: data.superior_roles ?? [],
+    aiGeneratedAt: data.ai_generated_at ?? null,
+    updatedAt: data.updated_at,
+    updatedByName: data.updated_by_name ?? null,
+  };
 }
 
 export async function listTeamWithCandidateCounts(

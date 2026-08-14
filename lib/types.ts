@@ -164,6 +164,114 @@ export interface CandidateReport {
   estimatesNote?: string;
 }
 
+// ── Newcomer Pathway (Part 6 — v8 prompt) ────────────────────────────────────
+
+/** 6A — Profession & Regulatory Status */
+export interface PathwayRegulatoryStatus {
+  profession: string;
+  countryOfTraining: string;
+  /** "provincial" | "federal" | "unregulated" */
+  regulatedStatus: string;
+  targetProvinces: string[];
+}
+
+/** 6B — Educational Credential Assessment */
+export interface PathwayECA {
+  organization: string;
+  url: string;
+  reason: string;
+  estimatedCostCAD: string;
+  processingTime: string;
+  documentsRequired: string[];
+}
+
+/** 6C — One province's licensing & registration details */
+export interface PathwayProvinceLicensing {
+  province: string;
+  regulatoryBody: string;
+  website: string;
+  registrationRequirements: string[];
+  examName: string;
+  examFormat: string;
+  examFee: string;
+  passRateIEP: string;
+  applicationFee: string;
+  annualRenewal: string;
+}
+
+/** 6D — Language Proficiency */
+export interface PathwayLanguage {
+  recommendedTest: string;
+  minimumScores: string;
+  feeCAD: string;
+  bookingUrl: string;
+  validity: string;
+  exemptionNote: string;
+}
+
+/** A single bridging program entry */
+export interface PathwayBridgingProgram {
+  name: string;
+  institution: string;
+  province: string;
+  delivery: string;
+  duration: string;
+  costCAD: string;
+  gapAddressed: string;
+  eligibility: string;
+  url: string;
+}
+
+/** 6E — Bridging Programs */
+export interface PathwayBridging {
+  required: "yes" | "possibly" | "unlikely";
+  reason: string;
+  programs: PathwayBridgingProgram[];
+  governmentFundingNote: string;
+}
+
+/** One step in the full numbered pathway */
+export interface PathwayStep {
+  action: string;
+  timeline: string;
+  costCAD: string;
+  explanation: string;
+}
+
+/** 6F — Full Pathway Step by Step */
+export interface PathwayFullPath {
+  startingPoint: string;
+  targetRole: string;
+  totalTimeline: string;
+  totalCostCAD: string;
+  steps: PathwayStep[];
+}
+
+/** 6G — One superior role option */
+export interface PathwaySuperiorRole {
+  title: string;
+  eligibilityPath: string[];
+  timelineFromRegistration: string;
+  equivalentRoleComp: string;
+  superiorRoleComp: string;
+}
+
+/** The full newcomer credential recognition & licensing pathway (Part 6). */
+export interface NewcomerPathway {
+  id: string;
+  candidateId: string;
+  regulatoryStatus: PathwayRegulatoryStatus | null;
+  eca: PathwayECA | null;
+  licensing: PathwayProvinceLicensing[];
+  language: PathwayLanguage | null;
+  bridging: PathwayBridging | null;
+  fullPath: PathwayFullPath | null;
+  superiorRoles: PathwaySuperiorRole[];
+  aiGeneratedAt: string | null;
+  updatedAt: string;
+  updatedByName: string | null;
+}
+
 /** A timestamped note on an organization, written by a platform admin. */
 export interface OrgNote {
   id: string;

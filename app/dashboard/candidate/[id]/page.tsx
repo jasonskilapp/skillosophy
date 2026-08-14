@@ -4,9 +4,10 @@ import TopBar from "@/components/TopBar";
 import CandidateProfile from "@/components/CandidateProfile";
 import WorkflowStatusSelector from "@/components/WorkflowStatusSelector";
 import CandidateNotes from "@/components/CandidateNotes";
+import NewcomerPathwayPanel from "@/components/NewcomerPathway";
 import { ArrowLeftIcon, CalendarIcon, ClockIcon } from "@/components/icons";
 import { getSession, orgLabels } from "@/lib/auth";
-import { getCandidate, listCandidateNotes } from "@/lib/data";
+import { getCandidate, listCandidateNotes, getPathway } from "@/lib/data";
 import { formatDate, formatDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -21,9 +22,12 @@ export default async function CandidateDetailPage({
   if (session.accountType !== "org_member") redirect("/");
 
   const { id } = await params;
-  const [result, notes] = await Promise.all([
+  const isNewcomerOrg = session.orgType === "newcomer";
+
+  const [result, notes, pathway] = await Promise.all([
     getCandidate(session, id),
     listCandidateNotes(id, session),
+    isNewcomerOrg ? getPathway(id, session) : Promise.resolve(null),
   ]);
   if (!result) notFound();
 
@@ -90,6 +94,9 @@ export default async function CandidateDetailPage({
         )}
 
         <CandidateNotes candidateId={id} initialNotes={generalNotes} />
+        {isNewcomerOrg && (
+          <NewcomerPathwayPanel candidateId={id} pathway={pathway} />
+        )}
       </main>
     </>
   );

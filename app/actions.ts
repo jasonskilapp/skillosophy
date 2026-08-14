@@ -913,3 +913,78 @@ export async function addCandidateNote(
   if (error) return { error: error.message };
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// Org member: save one section of a candidate's newcomer pathway
+// ---------------------------------------------------------------------------
+
+const PATHWAY_COLUMNS = [
+  "regulatory_status",
+  "eca",
+  "licensing",
+  "language_proficiency",
+  "bridging",
+  "full_path",
+  "superior_roles",
+] as const;
+
+type PathwayColumn = (typeof PATHWAY_COLUMNS)[number];
+
+export async function savePathwaySection(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+
+  const candidateId = String(formData.get("candidateId") ?? "").trim();
+  const column = String(formData.get("column") ?? "").trim() as PathwayColumn;
+  const dataStr = String(formData.get("data") ?? "").trim();
+
+  if (!candidateId) return { error: "Candidate ID is required." };
+  if (!(PATHWAY_COLUMNS as readonly string[]).includes(column)) {
+    return { error: "Invalid section." };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(dataStr);
+  } catch {
+    return { error: "Invalid data format." };
+  }
+
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) {
+    return { error: "Not authorized." };
+  }
+
+  const { error } = await admin.from("candidate_pathway").upsert(
+    {
+      candidate_id: candidateId,
+      [column]: parsed,
+      updated_at: new Date().toISOString(),
+      updated_by_name: session.name,
+    },
+    { onConflict: "candidate_id" },
+  );
+
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath(`/dashboard/candidate/${candidateId}`);
+  return { ok: true };
+}
