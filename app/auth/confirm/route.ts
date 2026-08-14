@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+    const reason = encodeURIComponent(error.message ?? "unknown");
+    return NextResponse.redirect(`${origin}/reset-password?error=expired&reason=${reason}`);
   }
 
-  return NextResponse.redirect(`${origin}/reset-password?error=expired`);
+  return NextResponse.redirect(`${origin}/reset-password?error=expired&reason=missing_token`);
 }

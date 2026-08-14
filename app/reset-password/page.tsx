@@ -8,6 +8,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const linkExpired = searchParams.get("error") === "expired";
+  const reason = searchParams.get("reason");
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
@@ -48,6 +49,9 @@ function ResetPasswordForm() {
         {linkExpired && (
           <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
             That reset link has expired or already been used. Request a new one below.
+            {reason && (
+              <span className="ml-1 opacity-60">({reason})</span>
+            )}
           </div>
         )}
 
