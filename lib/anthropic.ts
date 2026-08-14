@@ -39,7 +39,7 @@ export async function analyzeResume(
   const client = new Anthropic({ apiKey: anthropicApiKey });
   const response = await client.messages.create({
     model: anthropicModel,
-    max_tokens: 8000,
+    max_tokens: ctx.orgType === "newcomer" ? 16000 : 8000,
     system: buildSystemPrompt(ctx.orgType),
     messages: [{ role: "user", content: buildUserMessage(resumeText, ctx) }],
   });
@@ -73,7 +73,7 @@ export async function analyzeResumeFromPdf(
 
   const response = await client.messages.create({
     model: anthropicModel,
-    max_tokens: 8000,
+    max_tokens: ctx.orgType === "newcomer" ? 16000 : 8000,
     system: buildSystemPrompt(ctx.orgType),
     messages: [
       {
