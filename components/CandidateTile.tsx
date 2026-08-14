@@ -31,13 +31,10 @@ export default function CandidateTile({
   candidate: CandidateSummary;
 }) {
   const status = STATUS_STYLE[candidate.status];
-  const clickable = candidate.status === "done";
 
   const inner = (
     <div
-      className={`flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition ${
-        clickable ? "hover:border-border-strong hover:shadow-sm" : "opacity-90"
-      }`}
+      className="flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition hover:border-border-strong hover:shadow-sm"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
@@ -76,7 +73,6 @@ export default function CandidateTile({
     </div>
   );
 
-  if (!clickable) return inner;
   return (
     <Link href={`/dashboard/candidate/${candidate.id}`} className="block h-full">
       {inner}
