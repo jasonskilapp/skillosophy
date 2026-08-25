@@ -48,13 +48,16 @@ Recommend 4–6 role TYPES (categories, not listings) calibrated to the detected
   Developing   → specialist, senior analyst, team/project lead
   Established   → manager, senior manager, director, principal
   Senior        → VP, executive, C-suite, advisory, founder, partner
-For each, explain why they're well-positioned (tie to specific skills/evidence), name which recommended industries it lives in, and give an estimated compensation range (low/high annual CAD) with a region.
+For each, explain why they're well-positioned (tie to specific skills/evidence), name which recommended industries it lives in, give an estimated compensation range (low/high annual CAD) with a region, and list 3–5 specific skills from the candidate's profile that directly apply to this role (applicableSkills). Set requiresLicensing to true if Canadian provincial or federal licensure is required before working in this role.
 
 JOB SEARCH KEYWORDS
 For each recommended industry, give a block of 6–8 copy-paste keywords (role titles, skills, tools, sector terms) usable on LinkedIn/Indeed Canada.
 
 RECRUITER NOTES
 Give 4–6 short notes for the recruiter: positive signals (tone "positive") and cautions/flags to confirm (tone "caution").
+
+DISCREPANCY FLAGS
+Identify specific issues in the resume that the candidate should fix before applying — date mismatches, inflated experience claims, missing employer details, unexplained gaps, credential inconsistencies. For each: a short title, what the issue is (grounded in specific resume content), and a concrete action the candidate should take. Omit this field entirely if there are no discrepancies to flag.
 
 COMPENSATION: All figures are your best estimates from Canadian market knowledge — you cannot browse live data. Keep them realistic.`;
 
@@ -98,7 +101,16 @@ Assess whether a bridging program will likely be required (yes / possibly / unli
 Produce a numbered checklist from the candidate's current role → Canadian equivalent. For each step: the action, timeline estimate, cost in CAD, and a 2-sentence explanation of what happens and what the candidate receives at the end. Steps must cover: ECA → language test → college/regulatory body application → bridging (if required) → licensing exam → registration → first Canadian position. Include a starting point, target role, total timeline estimate, and total cost estimate.
 
 6G — SUPERIOR ROLE PATHWAY
-Based on total experience and specialization in the resume, identify 1–2 roles the candidate could target ABOVE the direct equivalent Canadian position once licensed. For each: title, eligibility path (what's needed beyond initial licensure), timeline from initial registration, estimated compensation for the equivalent role (low/median/high CAD), and estimated compensation for the superior role (low/median/high CAD).`;
+Based on total experience and specialization in the resume, identify 1–2 roles the candidate could target ABOVE the direct equivalent Canadian position once licensed. For each: title, eligibility path (what's needed beyond initial licensure), timeline from initial registration, estimated compensation for the equivalent role (low/median/high CAD), and estimated compensation for the superior role (low/median/high CAD).
+
+PART 7 — LICENSING PATHWAY SCENARIOS
+Produce two realistic scenarios based on this candidate's profile, country of training, and profession:
+
+Scenario A (Lower-Complexity Pathway): The candidate's credentials are assessed with no significant gaps. Cover the typical timeline and cost for this best-case path — include only ECA, language test, regulator application, licensing exam, and registration fees.
+
+Scenario B (Additional-Requirements Pathway): The regulator identifies educational or practice gaps requiring bridging programs or additional assessment. Cover the extended timeline and higher cost. Name 2–3 specific factors that could push the candidate onto this path (e.g. country of training, years of experience, curriculum gaps).
+
+For each scenario provide: a short label, conditions that trigger it, total estimated timeline, total estimated cost in CAD, and 2–3 key factors that could shift the outcome.`;
 
 // ── JSON schema instructions ──────────────────────────────────────────────────
 
@@ -127,12 +139,15 @@ const PARTS_1_5_JSON = `{
   "targetRoles": [ {
     "title": string,
     "whySuited": string,
+    "requiresLicensing": boolean,
+    "applicableSkills": string[],
     "careerStageFit"?: string,
     "whereItExists"?: string,
     "comp"?: { "low": number, "high": number, "region"?: string }
   } ],
   "keywords": [ { "industry": string, "terms": string[] } ],
-  "recruiterNotes": [ { "tone": "positive" | "caution", "text": string } ]
+  "recruiterNotes": [ { "tone": "positive" | "caution", "text": string } ],
+  "discrepancies"?: [ { "title": string, "description": string, "action": string } ]
 }`;
 
 const NEWCOMER_PATHWAY_JSON = `  "newcomerPathway": {
@@ -204,7 +219,23 @@ const NEWCOMER_PATHWAY_JSON = `  "newcomerPathway": {
       "timelineFromRegistration": string,
       "equivalentRoleComp": string,
       "superiorRoleComp": string
-    } ]
+    } ],
+    "licensingScenarios": {
+      "scenarioA": {
+        "label": string,
+        "conditions": string,
+        "timeline": string,
+        "estimatedCostCAD": string,
+        "keyFactors": string[]
+      },
+      "scenarioB": {
+        "label": string,
+        "conditions": string,
+        "timeline": string,
+        "estimatedCostCAD": string,
+        "keyFactors": string[]
+      }
+    }
   }`;
 
 export function buildSystemPrompt(orgType?: OrgType | null): string {

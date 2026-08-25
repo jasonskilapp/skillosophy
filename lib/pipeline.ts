@@ -71,6 +71,7 @@ export async function runAnalysis(candidateId: string): Promise<void> {
           bridging: pathway.bridging,
           full_path: pathway.fullPath,
           superior_roles: pathway.superiorRoles,
+          licensing_scenarios: pathway.licensingScenarios ?? null,
           ai_generated_at: pathway.aiGeneratedAt,
           updated_at: new Date().toISOString(),
         },

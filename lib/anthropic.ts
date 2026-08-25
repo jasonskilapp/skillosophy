@@ -215,6 +215,8 @@ function normalizeReport(data: unknown, ctx: ResumeContext): CandidateReport {
     targetRoles: asArray(d.targetRoles).map((r) => ({
       title: String(r.title ?? ""),
       whySuited: String(r.whySuited ?? ""),
+      requiresLicensing: r.requiresLicensing === true,
+      applicableSkills: Array.isArray(r.applicableSkills) ? r.applicableSkills.map(String) : [],
       careerStageFit: r.careerStageFit ? String(r.careerStageFit) : undefined,
       whereItExists: r.whereItExists ? String(r.whereItExists) : undefined,
       comp: normalizeComp(r.comp),
@@ -227,6 +229,13 @@ function normalizeReport(data: unknown, ctx: ResumeContext): CandidateReport {
       tone: n.tone === "caution" ? "caution" : "positive",
       text: String(n.text ?? ""),
     })),
+    discrepancies: Array.isArray(d.discrepancies)
+      ? (d.discrepancies as Record<string, unknown>[]).map((disc) => ({
+          title: String(disc.title ?? ""),
+          description: String(disc.description ?? ""),
+          action: String(disc.action ?? ""),
+        }))
+      : undefined,
     estimatesNote: ESTIMATES_NOTE,
   };
 }
@@ -435,6 +444,21 @@ function normalizePathway(data: unknown): NewcomerPathway | null {
         superiorRoleComp: str(sr.superiorRoleComp),
       }),
     ),
+    licensingScenarios: (() => {
+      const ls = p.licensingScenarios as Record<string, unknown> | undefined;
+      if (!ls || typeof ls !== "object") return null;
+      const parseScenario = (s: unknown) => {
+        const sc = (s ?? {}) as Record<string, unknown>;
+        return {
+          label: str(sc.label),
+          conditions: str(sc.conditions),
+          timeline: str(sc.timeline),
+          estimatedCostCAD: str(sc.estimatedCostCAD),
+          keyFactors: Array.isArray(sc.keyFactors) ? sc.keyFactors.map(String) : [],
+        };
+      };
+      return { scenarioA: parseScenario(ls.scenarioA), scenarioB: parseScenario(ls.scenarioB) };
+    })(),
     aiGeneratedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     updatedByName: null,

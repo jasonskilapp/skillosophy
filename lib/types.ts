@@ -125,6 +125,20 @@ export interface TargetRole {
   /** Industries from the recommendations where this role is in demand. */
   whereItExists?: string;
   comp?: Comp;
+  /** True when Canadian provincial/federal licensure is required before working in this role. */
+  requiresLicensing?: boolean;
+  /** Relevant skills from the candidate's profile that apply to this role. */
+  applicableSkills?: string[];
+}
+
+/** An actionable issue the candidate should fix before applying. */
+export interface Discrepancy {
+  /** Short title, e.g. "Employment dates don't add up". */
+  title: string;
+  /** What the issue is, grounded in resume content. */
+  description: string;
+  /** Concrete step the candidate should take to resolve it. */
+  action: string;
 }
 
 export interface KeywordGroup {
@@ -160,6 +174,8 @@ export interface CandidateReport {
   targetRoles: TargetRole[];
   keywords: KeywordGroup[];
   recruiterNotes: RecruiterNote[];
+  /** Issues the candidate should resolve before applying — date mismatches, missing info, etc. */
+  discrepancies?: Discrepancy[];
   /** True when figures are model estimates (always true in this prototype). */
   estimatesNote?: string;
 }
@@ -256,7 +272,21 @@ export interface PathwaySuperiorRole {
   superiorRoleComp: string;
 }
 
-/** The full newcomer credential recognition & licensing pathway (Part 6). */
+/** Part 7 — one licensing pathway scenario (lower-complexity or additional-requirements). */
+export interface LicensingScenario {
+  /** Short label, e.g. "Lower-Complexity Pathway". */
+  label: string;
+  /** Conditions that put the candidate on this path. */
+  conditions: string;
+  /** Estimated total timeline, e.g. "14–20 months". */
+  timeline: string;
+  /** Estimated total cost in CAD, e.g. "~$2,500 CAD". */
+  estimatedCostCAD: string;
+  /** 2–3 factors that could shift the outcome. */
+  keyFactors: string[];
+}
+
+/** The full newcomer credential recognition & licensing pathway (Parts 6–7). */
 export interface NewcomerPathway {
   id: string;
   candidateId: string;
@@ -267,10 +297,12 @@ export interface NewcomerPathway {
   bridging: PathwayBridging | null;
   fullPath: PathwayFullPath | null;
   superiorRoles: PathwaySuperiorRole[];
+  /** Part 7 — two licensing pathway scenarios (lower-complexity vs additional-requirements). */
+  licensingScenarios: { scenarioA: LicensingScenario; scenarioB: LicensingScenario } | null;
   aiGeneratedAt: string | null;
   updatedAt: string;
   updatedByName: string | null;
-  /** Caseworker notes per section, keyed by section code ("6a"–"6g"). */
+  /** Caseworker notes per section, keyed by section code ("6a"–"7"). */
   sectionNotes: Record<string, string>;
 }
 

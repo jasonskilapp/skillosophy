@@ -1,6 +1,7 @@
 import type {
   CandidateNote,
   CandidateReport,
+  Discrepancy,
   Industry,
   KeywordGroup,
   RecruiterNote,
@@ -28,19 +29,26 @@ export default function CandidateProfile({
   report,
   candidateId,
   notesBySection,
+  isNewcomerOrg,
 }: {
   report: CandidateReport;
   candidateId: string;
   notesBySection: NotesBySection;
+  isNewcomerOrg?: boolean;
 }) {
+  const traditionalIndustries = report.industries?.filter(i => i.type === "Traditional") ?? [];
+  const alternativeIndustries = report.industries?.filter(i => i.type === "Non-Traditional") ?? [];
+
   return (
     <div className="space-y-7">
       <ProfileHeader report={report} />
       <StatCards report={report} />
       <SkillsProfile report={report} candidateId={candidateId} notes={notesBySection["skills"] ?? []} />
-      <IndustryFit report={report} candidateId={candidateId} notes={notesBySection["industry"] ?? []} />
-      <TargetRoles report={report} candidateId={candidateId} notes={notesBySection["roles"] ?? []} />
+      <IndustryFit industries={traditionalIndustries} candidateId={candidateId} notes={notesBySection["industry"] ?? []} />
+      <AlternativeCareerPaths industries={alternativeIndustries} candidateId={candidateId} notes={notesBySection["alternative"] ?? []} />
+      <TargetRoles report={report} candidateId={candidateId} notes={notesBySection["roles"] ?? []} isNewcomerOrg={isNewcomerOrg} />
       <Keywords report={report} candidateId={candidateId} notes={notesBySection["keywords"] ?? []} />
+      <DiscrepancyFlags discrepancies={report.discrepancies} />
       {report.estimatesNote && (
         <p className="text-xs text-muted px-1">{report.estimatesNote}</p>
       )}
@@ -209,15 +217,15 @@ function IndustryCard({ industry }: { industry: Industry }) {
   );
 }
 
-function IndustryFit({ report, candidateId, notes }: { report: CandidateReport; candidateId: string; notes: CandidateNote[] }) {
-  if (!report.industries?.length) return null;
+function IndustryFit({ industries, candidateId, notes }: { industries: Industry[]; candidateId: string; notes: CandidateNote[] }) {
+  if (!industries.length) return null;
   return (
     <details className="group">
       <SectionHeading icon={<IndustryIcon className="h-5 w-5" />}>
         Industry fit
       </SectionHeading>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {report.industries.map((ind, i) => (
+        {industries.map((ind, i) => (
           <IndustryCard key={i} industry={ind} />
         ))}
       </div>
@@ -226,11 +234,66 @@ function IndustryFit({ report, candidateId, notes }: { report: CandidateReport; 
   );
 }
 
-function RoleCard({ role }: { role: TargetRole }) {
+function AlternativeCareerPaths({ industries, candidateId, notes }: { industries: Industry[]; candidateId: string; notes: CandidateNote[] }) {
+  if (!industries.length) return null;
   return (
-    <div className="flex flex-col rounded-xl border border-border bg-surface p-5">
-      <h3 className="text-sm font-semibold leading-snug">{role.title}</h3>
-      <p className="mt-2 text-sm text-foreground/80">{role.whySuited}</p>
+    <details className="group">
+      <SectionHeading icon={<IndustryIcon className="h-5 w-5" />}>
+        Alternative career paths
+      </SectionHeading>
+      <p className="mb-4 text-sm text-muted">
+        Industries outside this candidate&apos;s primary field where their transferable skills give a genuine edge.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {industries.map((ind, i) => (
+          <div key={i} className="flex flex-col rounded-xl border border-dashed border-border bg-foundational-soft p-5">
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <h3 className="text-sm font-semibold leading-snug">{ind.name}</h3>
+              <span className="shrink-0 rounded-full bg-accent-blue-soft px-2.5 py-0.5 text-[11px] font-medium text-accent-blue">
+                Alternative path
+              </span>
+            </div>
+            <p className="text-sm text-foreground/80">{ind.whyItFits}</p>
+            {ind.whatItOpens && (
+              <p className="mt-3 text-xs text-muted italic">{ind.whatItOpens}</p>
+            )}
+            {ind.comp && (
+              <div className="mt-auto pt-3 border-t border-border mt-4 flex items-end justify-between">
+                <Figure value={money(ind.comp.low)} label="Low" />
+                {ind.comp.median != null && <Figure value={money(ind.comp.median)} label="Median" />}
+                <Figure value={money(ind.comp.high)} label="High" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <SectionNotes candidateId={candidateId} section="alternative" initialNotes={notes} />
+    </details>
+  );
+}
+
+function RoleCard({ role, variant = "default" }: { role: TargetRole; variant?: "default" | "licensed" }) {
+  const isLicensed = variant === "licensed";
+  return (
+    <div className={`flex flex-col rounded-xl border p-5 ${isLicensed ? "border-dashed border-border bg-foundational-soft" : "border-border bg-surface"}`}>
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <h3 className="text-sm font-semibold leading-snug">{role.title}</h3>
+        {isLicensed && (
+          <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+            Requires licence
+          </span>
+        )}
+      </div>
+      <p className="text-sm text-foreground/80">{role.whySuited}</p>
+      {role.applicableSkills && role.applicableSkills.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {role.applicableSkills.map((s, i) => (
+            <span key={i} className="rounded-md bg-primary-soft px-2 py-0.5 text-[11px] text-primary">
+              {s}
+            </span>
+          ))}
+        </div>
+      )}
       {role.comp && (
         <p className="mt-3 text-sm font-semibold text-primary">
           {compRange(role.comp)}
@@ -240,19 +303,81 @@ function RoleCard({ role }: { role: TargetRole }) {
   );
 }
 
-function TargetRoles({ report, candidateId, notes }: { report: CandidateReport; candidateId: string; notes: CandidateNote[] }) {
+function RoleGroup({ title, subtitle, roles, variant }: { title: string; subtitle?: string; roles: TargetRole[]; variant: "default" | "licensed" }) {
+  if (!roles.length) return null;
+  return (
+    <div>
+      <div className="mb-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</p>
+        {subtitle && <p className="text-xs text-muted mt-0.5">{subtitle}</p>}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {roles.map((r, i) => <RoleCard key={i} role={r} variant={variant} />)}
+      </div>
+    </div>
+  );
+}
+
+function TargetRoles({ report, candidateId, notes, isNewcomerOrg }: { report: CandidateReport; candidateId: string; notes: CandidateNote[]; isNewcomerOrg?: boolean }) {
   if (!report.targetRoles?.length) return null;
+
+  const nowRoles = isNewcomerOrg
+    ? report.targetRoles.filter(r => !r.requiresLicensing)
+    : report.targetRoles;
+  const afterRoles = isNewcomerOrg
+    ? report.targetRoles.filter(r => r.requiresLicensing)
+    : [];
+
   return (
     <details className="group">
       <SectionHeading icon={<TargetIcon className="h-5 w-5" />}>
         Target roles
       </SectionHeading>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {report.targetRoles.map((r, i) => (
-          <RoleCard key={i} role={r} />
-        ))}
+      <div className="space-y-6">
+        {isNewcomerOrg ? (
+          <>
+            <RoleGroup
+              title="Roles to pursue now"
+              subtitle="No licence required — pursue while completing registration"
+              roles={nowRoles}
+              variant="default"
+            />
+            <RoleGroup
+              title="Roles available after registration"
+              subtitle="Requires Canadian provincial or federal licensure"
+              roles={afterRoles}
+              variant="licensed"
+            />
+          </>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {report.targetRoles.map((r, i) => <RoleCard key={i} role={r} variant="default" />)}
+          </div>
+        )}
       </div>
       <SectionNotes candidateId={candidateId} section="roles" initialNotes={notes} />
+    </details>
+  );
+}
+
+function DiscrepancyFlags({ discrepancies }: { discrepancies?: Discrepancy[] }) {
+  if (!discrepancies?.length) return null;
+  return (
+    <details className="group">
+      <SectionHeading icon={<InfoIcon className="h-5 w-5" />}>
+        Issues to resolve before applying
+      </SectionHeading>
+      <div className="space-y-3">
+        {discrepancies.map((d, i) => (
+          <div key={i} className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">{d.title}</p>
+            <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">{d.description}</p>
+            <p className="mt-2 text-xs font-medium text-amber-800 dark:text-amber-300">
+              <span className="font-semibold">What to do: </span>{d.action}
+            </p>
+          </div>
+        ))}
+      </div>
     </details>
   );
 }

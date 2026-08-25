@@ -318,6 +318,7 @@ export async function getPathway(
     bridging: data.bridging ?? null,
     fullPath: data.full_path ?? null,
     superiorRoles: data.superior_roles ?? [],
+    licensingScenarios: data.licensing_scenarios ?? null,
     aiGeneratedAt: data.ai_generated_at ?? null,
     updatedAt: data.updated_at,
     updatedByName: data.updated_by_name ?? null,

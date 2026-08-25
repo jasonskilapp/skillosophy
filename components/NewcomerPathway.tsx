@@ -901,6 +901,85 @@ function SuperiorRolesSection({ candidateId, data, note }: { candidateId: string
   );
 }
 
+// ── Part 7: Licensing Scenarios ───────────────────────────────────────────────
+
+type LicensingScenarios = NonNullable<NewcomerPathway["licensingScenarios"]>;
+
+function ScenarioCard({
+  label,
+  scenario,
+  accent,
+}: {
+  label: string;
+  scenario: LicensingScenarios["scenarioA"];
+  accent: "green" | "amber";
+}) {
+  const colors =
+    accent === "green"
+      ? "border-primary/30 bg-primary-soft"
+      : "border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20";
+  const labelColors =
+    accent === "green"
+      ? "text-primary"
+      : "text-amber-700 dark:text-amber-400";
+
+  return (
+    <div className={`flex flex-col rounded-xl border p-5 ${colors}`}>
+      <p className={`mb-3 text-xs font-bold uppercase tracking-wide ${labelColors}`}>{label}</p>
+      <p className="text-sm font-semibold">{scenario.label}</p>
+      <p className="mt-1 text-sm text-foreground/80">{scenario.conditions}</p>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-lg border border-border bg-surface p-3 text-center">
+          <p className="text-lg font-bold">{scenario.timeline}</p>
+          <p className="mt-0.5 text-xs text-muted">Estimated timeline</p>
+        </div>
+        <div className="rounded-lg border border-border bg-surface p-3 text-center">
+          <p className="text-lg font-bold">{scenario.estimatedCostCAD}</p>
+          <p className="mt-0.5 text-xs text-muted">Estimated cost</p>
+        </div>
+      </div>
+      {scenario.keyFactors?.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-1.5 text-xs font-medium text-muted">Key factors</p>
+          <ul className="space-y-1">
+            {scenario.keyFactors.map((f, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-xs text-foreground/80">
+                <span className="mt-0.5 text-muted">·</span>
+                {f}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LicensingScenarioSection({
+  candidateId,
+  data,
+  note,
+}: {
+  candidateId: string;
+  data: LicensingScenarios | null;
+  note: string;
+}) {
+  if (!data) return null;
+  return (
+    <details open className="group">
+      <SectionHeading>7 — Licensing Pathway Scenarios</SectionHeading>
+      <p className="mb-4 text-sm text-muted">
+        Two realistic outcomes depending on how the credential assessment goes. Actual results depend on the regulator&apos;s decision.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ScenarioCard label="Scenario A — Lower complexity" scenario={data.scenarioA} accent="green" />
+        <ScenarioCard label="Scenario B — Additional requirements" scenario={data.scenarioB} accent="amber" />
+      </div>
+      <SectionNotes candidateId={candidateId} sectionKey="7" initialNote={note} />
+    </details>
+  );
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export default function NewcomerPathwayPanel({
@@ -915,7 +994,7 @@ export default function NewcomerPathwayPanel({
       <div className="mb-4 flex items-center gap-2.5 border-b border-border pb-3">
         <h2 className="text-base font-semibold tracking-tight">Newcomer Pathway</h2>
         <span className="rounded-full bg-accent-blue-soft px-2.5 py-0.5 text-xs font-medium text-accent-blue">
-          Part 6
+          Parts 6–7
         </span>
         {pathway?.updatedByName && (
           <span className="ml-auto text-xs text-muted">
@@ -931,6 +1010,7 @@ export default function NewcomerPathwayPanel({
         <BridgingSection candidateId={candidateId} data={pathway?.bridging ?? null} note={pathway?.sectionNotes?.["6e"] ?? ""} />
         <FullPathSection candidateId={candidateId} data={pathway?.fullPath ?? null} note={pathway?.sectionNotes?.["6f"] ?? ""} />
         <SuperiorRolesSection candidateId={candidateId} data={pathway?.superiorRoles ?? []} note={pathway?.sectionNotes?.["6g"] ?? ""} />
+        <LicensingScenarioSection candidateId={candidateId} data={pathway?.licensingScenarios ?? null} note={pathway?.sectionNotes?.["7"] ?? ""} />
       </div>
     </div>
   );

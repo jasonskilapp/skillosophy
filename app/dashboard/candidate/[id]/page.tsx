@@ -98,7 +98,7 @@ export default async function CandidateDetailPage({
         </div>
 
         {report ? (
-          <CandidateProfile report={report} candidateId={id} notesBySection={notesBySection} />
+          <CandidateProfile report={report} candidateId={id} notesBySection={notesBySection} isNewcomerOrg={isNewcomerOrg} />
         ) : (
           <div className="rounded-xl border border-border bg-surface p-10 text-center">
             <p className="font-medium">Analysis not ready</p>

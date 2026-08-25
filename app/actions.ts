@@ -1160,6 +1160,7 @@ export async function acceptPendingReport(candidateId: string): Promise<ActionRe
         bridging: pp.bridging ?? null,
         full_path: pp.fullPath ?? null,
         superior_roles: pp.superiorRoles ?? [],
+        licensing_scenarios: pp.licensingScenarios ?? null,
         ai_generated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         updated_by_name: session.name,
