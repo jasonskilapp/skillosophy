@@ -41,10 +41,10 @@ export default function CandidateProfile({
       <IndustryFit report={report} candidateId={candidateId} notes={notesBySection["industry"] ?? []} />
       <TargetRoles report={report} candidateId={candidateId} notes={notesBySection["roles"] ?? []} />
       <Keywords report={report} candidateId={candidateId} notes={notesBySection["keywords"] ?? []} />
-      <RecruiterNotes report={report} candidateId={candidateId} notes={notesBySection["recruiter"] ?? []} />
       {report.estimatesNote && (
         <p className="text-xs text-muted px-1">{report.estimatesNote}</p>
       )}
+      <RecruiterNotes report={report} candidateId={candidateId} notes={notesBySection["recruiter"] ?? []} />
     </div>
   );
 }
