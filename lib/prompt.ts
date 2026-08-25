@@ -11,6 +11,10 @@ export interface ResumeContext {
   name?: string;
   /** When set to "newcomer", Part 6 (credential recognition pathway) is appended. */
   orgType?: OrgType | null;
+  /** Caseworker notes keyed by section ("6a"–"6g") — injected into revision prompts. */
+  caseworkerNotes?: Record<string, string>;
+  /** General caseworker notes (not tied to a section). */
+  generalNotes?: { content: string; section: string | null }[];
 }
 
 // ── Parts 1–5 system prompt (unchanged from v7) ───────────────────────────────
@@ -233,3 +237,51 @@ export function buildUserMessage(resumeText: string, ctx: ResumeContext): string
 
 // Keep old export for any callers that haven't been updated yet
 export const ANALYSIS_JSON_INSTRUCTIONS = buildJsonInstructions();
+
+const SECTION_LABELS: Record<string, string> = {
+  "6a": "6A — Profession & Regulatory Status",
+  "6b": "6B — Educational Credential Assessment",
+  "6c": "6C — Licensing & Registration",
+  "6d": "6D — Language Proficiency",
+  "6e": "6E — Bridging Programs",
+  "6f": "6F — Full Pathway Step by Step",
+  "6g": "6G — Superior Role Pathway",
+};
+
+/**
+ * User message for a revision run — re-analyses using the existing report
+ * JSON plus caseworker notes, without needing the original resume file.
+ */
+export function buildRevisionMessage(
+  existingReport: unknown,
+  ctx: ResumeContext,
+): string {
+  const sectionNotes = ctx.caseworkerNotes ?? {};
+  const generalNotes = ctx.generalNotes ?? [];
+
+  const sectionBlock = Object.entries(sectionNotes)
+    .filter(([, v]) => v?.trim())
+    .map(([k, v]) => `  ${SECTION_LABELS[k] ?? k}: ${v}`)
+    .join("\n");
+
+  const generalBlock = generalNotes
+    .filter((n) => n.content?.trim())
+    .map((n) => `  - ${n.content}`)
+    .join("\n");
+
+  const notesSection = [
+    sectionBlock ? `Pathway section notes:\n${sectionBlock}` : "",
+    generalBlock ? `General caseworker notes:\n${generalBlock}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  return `You previously produced the following resume analysis (JSON). The caseworker has reviewed it and added notes below. Revise the analysis taking these notes into account — correct any errors, incorporate additional context, and refine recommendations where the notes indicate a change is warranted. Maintain the exact same JSON structure.
+
+PREVIOUS ANALYSIS:
+${JSON.stringify(existingReport, null, 2)}
+
+${notesSection || "No caseworker notes provided."}
+
+${buildJsonInstructions(ctx.orgType)}`;
+}

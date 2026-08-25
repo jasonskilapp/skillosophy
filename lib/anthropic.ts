@@ -3,6 +3,7 @@ import { anthropicApiKey, anthropicModel } from "./config";
 import {
   buildSystemPrompt,
   buildUserMessage,
+  buildRevisionMessage,
   type ResumeContext,
 } from "./prompt";
 import type {
@@ -87,6 +88,38 @@ export async function analyzeResumeFromPdf(
         ],
       },
     ],
+  });
+
+  const raw = response.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+
+  const parsed = parseJson(raw);
+  return {
+    report: normalizeReport(parsed, ctx),
+    pathway: ctx.orgType === "newcomer" ? normalizePathway(parsed) : null,
+  };
+}
+
+/**
+ * Re-analyse using an existing report JSON + caseworker notes (no resume file needed).
+ * Used for the "Re-run with notes" feature.
+ */
+export async function analyzeFromExisting(
+  existingReport: CandidateReport,
+  ctx: ResumeContext,
+): Promise<AnalysisResult> {
+  if (!anthropicApiKey) {
+    throw new Error("ANTHROPIC_API_KEY is not configured.");
+  }
+
+  const client = new Anthropic({ apiKey: anthropicApiKey });
+  const response = await client.messages.create({
+    model: anthropicModel,
+    max_tokens: ctx.orgType === "newcomer" ? 16000 : 8000,
+    system: buildSystemPrompt(ctx.orgType),
+    messages: [{ role: "user", content: buildRevisionMessage(existingReport, ctx) }],
   });
 
   const raw = response.content

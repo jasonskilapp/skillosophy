@@ -16,7 +16,7 @@ import {
 } from "@/lib/supabase/server";
 import { runAnalysis } from "@/lib/pipeline";
 import { sendTeamInviteEmail, sendCandidateInviteEmail } from "@/lib/email";
-import type { OrgRole, OrgType } from "@/lib/types";
+import type { CandidateReport, OrgRole, OrgType } from "@/lib/types";
 
 type ActionResult = {
   error?: string;
@@ -1041,6 +1041,152 @@ export async function savePathwayNote(
     },
     { onConflict: "candidate_id" },
   );
+
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath(`/dashboard/candidate/${candidateId}`);
+  return { ok: true };
+}
+
+// ── Re-run Analysis / Pending Report ─────────────────────────────────────────
+
+/**
+ * Re-run the AI analysis using the existing report + all caseworker notes.
+ * The result is stored as a pending revision; the caseworker can then accept
+ * or discard it without losing the original.
+ */
+export async function rerunAnalysis(candidateId: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id, name, report")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) {
+    return { error: "Not authorized." };
+  }
+  if (!candidate.report) {
+    return { error: "No existing analysis found to revise." };
+  }
+
+  const [{ data: pathway }, { data: noteRows }] = await Promise.all([
+    admin.from("candidate_pathway").select("section_notes").eq("candidate_id", candidateId).maybeSingle(),
+    admin.from("candidate_notes").select("content, section").eq("candidate_id", candidateId),
+  ]);
+
+  const { analyzeFromExisting } = await import("@/lib/anthropic");
+  const result = await analyzeFromExisting(candidate.report as CandidateReport, {
+    name: candidate.name as string,
+    orgType: session.orgType,
+    caseworkerNotes: (pathway?.section_notes ?? {}) as Record<string, string>,
+    generalNotes: (noteRows ?? []).map((n) => ({ content: n.content as string, section: n.section as string | null })),
+  });
+
+  const { error } = await admin
+    .from("candidates")
+    .update({ pending_report: result.report, pending_pathway: result.pathway })
+    .eq("id", candidateId);
+
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath(`/dashboard/candidate/${candidateId}`);
+  return { ok: true };
+}
+
+/** Accept the pending analysis — it replaces the current report. */
+export async function acceptPendingReport(candidateId: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id, pending_report, pending_pathway, headline")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) {
+    return { error: "Not authorized." };
+  }
+  if (!candidate.pending_report) return { error: "No pending analysis to accept." };
+
+  const newReport = candidate.pending_report as CandidateReport;
+  const newHeadline = (newReport?.contact?.headline as string | undefined) ?? null;
+
+  const { error: updateErr } = await admin
+    .from("candidates")
+    .update({
+      report: candidate.pending_report,
+      headline: newHeadline ?? candidate.headline,
+      pending_report: null,
+      pending_pathway: null,
+    })
+    .eq("id", candidateId);
+
+  if (updateErr) return { error: updateErr.message };
+
+  // If there's a pending pathway and it's non-null, upsert to candidate_pathway.
+  if (candidate.pending_pathway) {
+    const pp = candidate.pending_pathway as Record<string, unknown>;
+    await admin.from("candidate_pathway").upsert(
+      {
+        candidate_id: candidateId,
+        regulatory_status: pp.regulatoryStatus ?? null,
+        eca: pp.eca ?? null,
+        licensing: pp.licensing ?? [],
+        language_proficiency: pp.language ?? null,
+        bridging: pp.bridging ?? null,
+        full_path: pp.fullPath ?? null,
+        superior_roles: pp.superiorRoles ?? [],
+        ai_generated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        updated_by_name: session.name,
+      },
+      { onConflict: "candidate_id" },
+    );
+  }
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath(`/dashboard/candidate/${candidateId}`);
+  return { ok: true };
+}
+
+/** Discard the pending analysis without touching the current report. */
+export async function discardPendingReport(candidateId: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
+    .from("candidates")
+    .update({ pending_report: null, pending_pathway: null })
+    .eq("id", candidateId);
 
   if (error) return { error: error.message };
 

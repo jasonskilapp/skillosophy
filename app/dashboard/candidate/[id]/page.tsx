@@ -6,6 +6,7 @@ import WorkflowStatusSelector from "@/components/WorkflowStatusSelector";
 import CandidateNotes from "@/components/CandidateNotes";
 import NewcomerPathwayPanel from "@/components/NewcomerPathway";
 import CandidateActions from "@/components/CandidateActions";
+import ReportFooterActions from "@/components/ReportFooterActions";
 import { ArrowLeftIcon, CalendarIcon, ClockIcon } from "@/components/icons";
 import { getSession, orgLabels } from "@/lib/auth";
 import { getCandidate, listCandidateNotes, getPathway } from "@/lib/data";
@@ -32,7 +33,7 @@ export default async function CandidateDetailPage({
   ]);
   if (!result) notFound();
 
-  const { summary, report } = result;
+  const { summary, report, pendingReport, pendingPathway } = result;
   const labels = orgLabels(session.orgType);
 
   // Group notes by section; null/undefined section → "general" (bottom notes)
@@ -112,6 +113,12 @@ export default async function CandidateDetailPage({
         {isNewcomerOrg && (
           <NewcomerPathwayPanel candidateId={id} pathway={pathway} />
         )}
+        <ReportFooterActions
+          candidateId={id}
+          pendingReport={pendingReport}
+          pendingPathway={pendingPathway}
+          hasReport={!!report}
+        />
       </main>
     </>
   );

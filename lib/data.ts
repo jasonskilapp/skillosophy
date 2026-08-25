@@ -112,14 +112,19 @@ export async function listArchivedCandidatesForSession(
 export async function getCandidate(
   session: Session,
   id: string,
-): Promise<{ summary: CandidateSummary; report: CandidateReport | null } | null> {
+): Promise<{
+  summary: CandidateSummary;
+  report: CandidateReport | null;
+  pendingReport: CandidateReport | null;
+  pendingPathway: NewcomerPathway | null;
+} | null> {
   if (appMode === "mock") {
     const summary = MOCK_CANDIDATES.find((c) => c.id === id);
     if (!summary) return null;
     if (session.orgRole === "member" && summary.ownerName !== session.name) {
       return null;
     }
-    return { summary, report: MOCK_REPORTS[id] ?? null };
+    return { summary, report: MOCK_REPORTS[id] ?? null, pendingReport: null, pendingPathway: null };
   }
 
   if (!session.organizationId) return null;
@@ -127,7 +132,7 @@ export async function getCandidate(
   const { data, error } = await supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report, workflow_status, archived_at",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report, workflow_status, archived_at, pending_report, pending_pathway",
     )
     .eq("id", id)
     .single();
@@ -141,6 +146,8 @@ export async function getCandidate(
   return {
     summary: rowToSummary(data),
     report: (data.report as CandidateReport | null) ?? null,
+    pendingReport: (data.pending_report as CandidateReport | null) ?? null,
+    pendingPathway: (data.pending_pathway as NewcomerPathway | null) ?? null,
   };
 }
 
