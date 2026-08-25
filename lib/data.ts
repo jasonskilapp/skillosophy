@@ -314,6 +314,7 @@ export async function getPathway(
     aiGeneratedAt: data.ai_generated_at ?? null,
     updatedAt: data.updated_at,
     updatedByName: data.updated_by_name ?? null,
+    sectionNotes: (data.section_notes ?? {}) as Record<string, string>,
   };
 }
 

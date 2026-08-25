@@ -270,6 +270,8 @@ export interface NewcomerPathway {
   aiGeneratedAt: string | null;
   updatedAt: string;
   updatedByName: string | null;
+  /** Caseworker notes per section, keyed by section code ("6a"–"6g"). */
+  sectionNotes: Record<string, string>;
 }
 
 /** A timestamped note on an organization, written by a platform admin. */

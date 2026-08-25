@@ -992,6 +992,63 @@ export async function savePathwaySection(
   return { ok: true };
 }
 
+export async function savePathwayNote(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+
+  const candidateId = String(formData.get("candidateId") ?? "").trim();
+  const sectionKey = String(formData.get("sectionKey") ?? "").trim();
+  const note = String(formData.get("note") ?? "");
+
+  if (!candidateId || !sectionKey) return { error: "Missing required fields." };
+
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) {
+    return { error: "Not authorized." };
+  }
+
+  const { data: existing } = await admin
+    .from("candidate_pathway")
+    .select("section_notes")
+    .eq("candidate_id", candidateId)
+    .maybeSingle();
+
+  const merged = { ...((existing?.section_notes ?? {}) as Record<string, string>), [sectionKey]: note };
+
+  const { error } = await admin.from("candidate_pathway").upsert(
+    {
+      candidate_id: candidateId,
+      section_notes: merged,
+      updated_at: new Date().toISOString(),
+      updated_by_name: session.name,
+    },
+    { onConflict: "candidate_id" },
+  );
+
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath(`/dashboard/candidate/${candidateId}`);
+  return { ok: true };
+}
+
 // ── Archive / Delete ──────────────────────────────────────────────────────────
 
 /**

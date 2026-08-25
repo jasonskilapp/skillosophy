@@ -341,5 +341,6 @@ function normalizePathway(data: unknown): NewcomerPathway | null {
     aiGeneratedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     updatedByName: null,
+    sectionNotes: {},
   };
 }

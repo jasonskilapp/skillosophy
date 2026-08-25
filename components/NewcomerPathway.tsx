@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useActionState, useEffect, useRef } from "react";
-import { savePathwaySection } from "@/app/actions";
+import { savePathwaySection, savePathwayNote } from "@/app/actions";
 import { ChevronDownIcon } from "./icons";
 import type {
   NewcomerPathway,
@@ -76,6 +76,54 @@ function SaveBar({
       {state.error && (
         <p className="text-sm text-rose-500">{state.error}</p>
       )}
+    </div>
+  );
+}
+
+function SectionNotes({
+  candidateId,
+  sectionKey,
+  initialNote,
+}: {
+  candidateId: string;
+  sectionKey: string;
+  initialNote: string;
+}) {
+  const [note, setNote] = useState(initialNote);
+  const [state, action, isPending] = useActionState<ActionResult, FormData>(savePathwayNote, {});
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const fd = new FormData();
+    fd.set("candidateId", candidateId);
+    fd.set("sectionKey", sectionKey);
+    fd.set("note", note);
+    action(fd);
+  }
+
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">Caseworker Notes</p>
+      <form onSubmit={handleSubmit} className="space-y-2">
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Add notes for this section…"
+          rows={3}
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+        />
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={isPending}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+          >
+            {isPending ? "Saving…" : "Save note"}
+          </button>
+          {state.ok && <span className="text-xs text-emerald-600">Saved</span>}
+          {state.error && <span className="text-xs text-rose-500">{state.error}</span>}
+        </div>
+      </form>
     </div>
   );
 }
@@ -210,9 +258,11 @@ function blankRegStatus(): RegStatus {
 function RegulatoryStatusSection({
   candidateId,
   data,
+  note,
 }: {
   candidateId: string;
   data: RegStatus | null;
+  note: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<RegStatus>(data ?? blankRegStatus());
@@ -277,6 +327,7 @@ function RegulatoryStatusSection({
       ) : (
         <EmptyState onEdit={() => setEditing(true)} />
       )}
+      <SectionNotes candidateId={candidateId} sectionKey="6a" initialNote={note} />
     </details>
   );
 }
@@ -289,7 +340,7 @@ function blankECA(): ECA {
   return { organization: "", url: "", reason: "", estimatedCostCAD: "", processingTime: "", documentsRequired: [] };
 }
 
-function ECASection({ candidateId, data }: { candidateId: string; data: ECA | null }) {
+function ECASection({ candidateId, data, note }: { candidateId: string; data: ECA | null; note: string }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ECA>(data ?? blankECA());
   const { state, isPending, submit } = useSectionAction(candidateId, "eca", () => setEditing(false));
@@ -343,6 +394,7 @@ function ECASection({ candidateId, data }: { candidateId: string; data: ECA | nu
       ) : (
         <EmptyState onEdit={() => setEditing(true)} />
       )}
+      <SectionNotes candidateId={candidateId} sectionKey="6b" initialNote={note} />
     </details>
   );
 }
@@ -398,9 +450,11 @@ function ProvinceCard({
 function LicensingSection({
   candidateId,
   data,
+  note,
 }: {
   candidateId: string;
   data: PathwayProvinceLicensing[];
+  note: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PathwayProvinceLicensing[]>(data);
@@ -467,6 +521,7 @@ function LicensingSection({
       ) : (
         <EmptyState onEdit={() => setEditing(true)} />
       )}
+      <SectionNotes candidateId={candidateId} sectionKey="6c" initialNote={note} />
     </details>
   );
 }
@@ -479,7 +534,7 @@ function blankLanguage(): Language {
   return { recommendedTest: "", minimumScores: "", feeCAD: "", bookingUrl: "", validity: "", exemptionNote: "" };
 }
 
-function LanguageSection({ candidateId, data }: { candidateId: string; data: Language | null }) {
+function LanguageSection({ candidateId, data, note }: { candidateId: string; data: Language | null; note: string }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Language>(data ?? blankLanguage());
   const { state, isPending, submit } = useSectionAction(candidateId, "language_proficiency", () => setEditing(false));
@@ -519,6 +574,7 @@ function LanguageSection({ candidateId, data }: { candidateId: string; data: Lan
       ) : (
         <EmptyState onEdit={() => setEditing(true)} />
       )}
+      <SectionNotes candidateId={candidateId} sectionKey="6d" initialNote={note} />
     </details>
   );
 }
@@ -535,7 +591,7 @@ function blankProgram(): PathwayBridgingProgram {
   return { name: "", institution: "", province: "", delivery: "", duration: "", costCAD: "", gapAddressed: "", eligibility: "", url: "" };
 }
 
-function BridgingSection({ candidateId, data }: { candidateId: string; data: Bridging | null }) {
+function BridgingSection({ candidateId, data, note }: { candidateId: string; data: Bridging | null; note: string }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Bridging>(data ?? blankBridging());
   const { state, isPending, submit } = useSectionAction(candidateId, "bridging", () => setEditing(false));
@@ -621,6 +677,7 @@ function BridgingSection({ candidateId, data }: { candidateId: string; data: Bri
       ) : (
         <EmptyState onEdit={() => setEditing(true)} />
       )}
+      <SectionNotes candidateId={candidateId} sectionKey="6e" initialNote={note} />
     </details>
   );
 }
@@ -676,7 +733,7 @@ function StepCard({
   );
 }
 
-function FullPathSection({ candidateId, data }: { candidateId: string; data: FullPath | null }) {
+function FullPathSection({ candidateId, data, note }: { candidateId: string; data: FullPath | null; note: string }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<FullPath>(data ?? blankFullPath());
   const { state, isPending, submit } = useSectionAction(candidateId, "full_path", () => setEditing(false));
@@ -758,6 +815,7 @@ function FullPathSection({ candidateId, data }: { candidateId: string; data: Ful
       ) : (
         <EmptyState onEdit={() => setEditing(true)} />
       )}
+      <SectionNotes candidateId={candidateId} sectionKey="6f" initialNote={note} />
     </details>
   );
 }
@@ -768,7 +826,7 @@ function blankSuperiorRole(): PathwaySuperiorRole {
   return { title: "", eligibilityPath: [], timelineFromRegistration: "", equivalentRoleComp: "", superiorRoleComp: "" };
 }
 
-function SuperiorRolesSection({ candidateId, data }: { candidateId: string; data: PathwaySuperiorRole[] }) {
+function SuperiorRolesSection({ candidateId, data, note }: { candidateId: string; data: PathwaySuperiorRole[]; note: string }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PathwaySuperiorRole[]>(data);
   const { state, isPending, submit } = useSectionAction(candidateId, "superior_roles", () => setEditing(false));
@@ -838,6 +896,7 @@ function SuperiorRolesSection({ candidateId, data }: { candidateId: string; data
       ) : (
         <EmptyState onEdit={() => setEditing(true)} />
       )}
+      <SectionNotes candidateId={candidateId} sectionKey="6g" initialNote={note} />
     </details>
   );
 }
@@ -865,13 +924,13 @@ export default function NewcomerPathwayPanel({
         )}
       </div>
       <div className="space-y-4">
-        <RegulatoryStatusSection candidateId={candidateId} data={pathway?.regulatoryStatus ?? null} />
-        <ECASection candidateId={candidateId} data={pathway?.eca ?? null} />
-        <LicensingSection candidateId={candidateId} data={pathway?.licensing ?? []} />
-        <LanguageSection candidateId={candidateId} data={pathway?.language ?? null} />
-        <BridgingSection candidateId={candidateId} data={pathway?.bridging ?? null} />
-        <FullPathSection candidateId={candidateId} data={pathway?.fullPath ?? null} />
-        <SuperiorRolesSection candidateId={candidateId} data={pathway?.superiorRoles ?? []} />
+        <RegulatoryStatusSection candidateId={candidateId} data={pathway?.regulatoryStatus ?? null} note={pathway?.sectionNotes?.["6a"] ?? ""} />
+        <ECASection candidateId={candidateId} data={pathway?.eca ?? null} note={pathway?.sectionNotes?.["6b"] ?? ""} />
+        <LicensingSection candidateId={candidateId} data={pathway?.licensing ?? []} note={pathway?.sectionNotes?.["6c"] ?? ""} />
+        <LanguageSection candidateId={candidateId} data={pathway?.language ?? null} note={pathway?.sectionNotes?.["6d"] ?? ""} />
+        <BridgingSection candidateId={candidateId} data={pathway?.bridging ?? null} note={pathway?.sectionNotes?.["6e"] ?? ""} />
+        <FullPathSection candidateId={candidateId} data={pathway?.fullPath ?? null} note={pathway?.sectionNotes?.["6f"] ?? ""} />
+        <SuperiorRolesSection candidateId={candidateId} data={pathway?.superiorRoles ?? []} note={pathway?.sectionNotes?.["6g"] ?? ""} />
       </div>
     </div>
   );
