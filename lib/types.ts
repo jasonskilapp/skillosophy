@@ -333,6 +333,22 @@ export const NOTE_TAG_LABELS: Record<NoteTag, string> = {
   missing_employment: "Missing employment",
 };
 
+/** Result of matching a candidate's skills against a job description. */
+export interface JobMatchResult {
+  /** Candidate skills that directly satisfy requirements in the JD. */
+  matchedSkills: string[];
+  /** Requirements in the JD the candidate does not yet have. */
+  missingSkills: string[];
+  /** Candidate skills not listed in the JD but genuinely relevant to the role. */
+  bonusSkills: string[];
+}
+
+/** Resume + cover letter writing tips tailored to a specific job posting. */
+export interface JobTailorResult {
+  resumeTips: string[];
+  coverLetterTips: string[];
+}
+
 export interface CandidateNote {
   id: string;
   candidateId: string;

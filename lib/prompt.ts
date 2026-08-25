@@ -238,6 +238,67 @@ export function buildUserMessage(resumeText: string, ctx: ResumeContext): string
 // Keep old export for any callers that haven't been updated yet
 export const ANALYSIS_JSON_INSTRUCTIONS = buildJsonInstructions();
 
+/** Build the user message for job-description → skills matching. */
+export function buildJobMatchMessage(
+  candidateSkills: { hard: string[]; soft: string[] },
+  jobDescription: string,
+): string {
+  const hard = candidateSkills.hard.join(", ");
+  const soft = candidateSkills.soft.join(", ");
+  return `You are a career analyst matching a candidate's skills to a job posting.
+
+CANDIDATE SKILLS
+Hard skills: ${hard || "none listed"}
+Soft skills: ${soft || "none listed"}
+
+JOB DESCRIPTION:
+${jobDescription}
+
+Identify three categories — respond with ONLY a JSON object, no prose, no fences:
+{
+  "matchedSkills": ["..."],
+  "missingSkills": ["..."],
+  "bonusSkills": ["..."]
+}
+
+matchedSkills: skills from the candidate that directly satisfy an explicit requirement in the job description.
+missingSkills: requirements or qualifications in the job description the candidate does not appear to have.
+bonusSkills: skills the candidate has that are not listed in the job description but would genuinely add value in this role.
+
+Keep each item concise (skill name or short phrase). No strength labels.`;
+}
+
+/** Build the user message for resume + cover letter tailoring tips. */
+export function buildTailorMessage(
+  candidateName: string,
+  careerStage: string,
+  topSkills: string[],
+  targetRoles: string[],
+  industries: string[],
+  jobDescription: string,
+): string {
+  return `You are a professional career coach helping a newcomer candidate write a strong, targeted resume and cover letter for a specific job.
+
+CANDIDATE PROFILE SUMMARY
+Name: ${candidateName}
+Career stage: ${careerStage}
+Top skills: ${topSkills.slice(0, 10).join(", ")}
+Target roles: ${targetRoles.join(", ")}
+Industries: ${industries.join(", ")}
+
+JOB DESCRIPTION:
+${jobDescription}
+
+Provide specific, actionable tips grounded in the candidate's actual background. Respond with ONLY a JSON object, no prose, no fences:
+{
+  "resumeTips": ["..."],
+  "coverLetterTips": ["..."]
+}
+
+resumeTips: 5–7 concrete tips on how to present this candidate's experience and skills so the resume stands out for this specific job.
+coverLetterTips: 5–7 concrete tips on what to emphasize, the tone to use, and key points to address in the cover letter.`;
+}
+
 const SECTION_LABELS: Record<string, string> = {
   "6a": "6A — Profession & Regulatory Status",
   "6b": "6B — Educational Credential Assessment",

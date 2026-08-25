@@ -16,7 +16,7 @@ import {
 } from "@/lib/supabase/server";
 import { runAnalysis } from "@/lib/pipeline";
 import { sendTeamInviteEmail, sendCandidateInviteEmail } from "@/lib/email";
-import type { CandidateReport, OrgRole, OrgType } from "@/lib/types";
+import type { CandidateReport, JobMatchResult, JobTailorResult, OrgRole, OrgType } from "@/lib/types";
 
 type ActionResult = {
   error?: string;
@@ -1193,6 +1193,81 @@ export async function discardPendingReport(candidateId: string): Promise<ActionR
   const { revalidatePath } = await import("next/cache");
   revalidatePath(`/dashboard/candidate/${candidateId}`);
   return { ok: true };
+}
+
+// ── Job Description Matching ──────────────────────────────────────────────────
+
+export async function matchJobDescriptionAction(
+  candidateId: string,
+  jobDescription: string,
+): Promise<{ result?: JobMatchResult; error?: string }> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") return { error: "Not authorized." };
+
+  const admin = createSupabaseAdminClient();
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id, report")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) return { error: "Not authorized." };
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) return { error: "Not authorized." };
+  if (!candidate.report) return { error: "No analysis found for this candidate." };
+
+  const report = candidate.report as CandidateReport;
+  const hard = report.skills?.hard?.map((s) => s.name) ?? [];
+  const soft = report.skills?.soft?.map((s) => s.name) ?? [];
+
+  if (appMode === "mock") {
+    return { result: { matchedSkills: ["Leadership", "Communication"], missingSkills: ["React"], bonusSkills: ["Project Management"] } };
+  }
+
+  const { matchJobDescription } = await import("@/lib/anthropic");
+  const result = await matchJobDescription({ hard, soft }, jobDescription);
+  return { result };
+}
+
+export async function tailorProfileAction(
+  candidateId: string,
+  jobDescription: string,
+): Promise<{ result?: JobTailorResult; error?: string }> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") return { error: "Not authorized." };
+
+  const admin = createSupabaseAdminClient();
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id, name, report")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) return { error: "Not authorized." };
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) return { error: "Not authorized." };
+  if (!candidate.report) return { error: "No analysis found for this candidate." };
+
+  const report = candidate.report as CandidateReport;
+  const topSkills = [
+    ...(report.skills?.hard?.map((s) => s.name) ?? []),
+    ...(report.skills?.soft?.map((s) => s.name) ?? []),
+  ].slice(0, 12);
+  const targetRoles = report.targetRoles?.map((r) => r.title) ?? [];
+  const industries = report.industries?.map((i) => i.name) ?? [];
+
+  if (appMode === "mock") {
+    return { result: { resumeTips: ["Highlight leadership experience"], coverLetterTips: ["Open with your key achievement"] } };
+  }
+
+  const { tailorForJob } = await import("@/lib/anthropic");
+  const result = await tailorForJob(
+    candidate.name as string,
+    report.careerStage,
+    topSkills,
+    targetRoles,
+    industries,
+    jobDescription,
+  );
+  return { result };
 }
 
 // ── Archive / Delete ──────────────────────────────────────────────────────────

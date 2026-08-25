@@ -7,6 +7,7 @@ import {
   acceptPendingReport,
   discardPendingReport,
 } from "@/app/actions";
+import JobDescriptionPanel from "./JobDescriptionPanel";
 import type { CandidateReport, NewcomerPathway } from "@/lib/types";
 
 function CareerBadge({ stage }: { stage: string }) {
@@ -201,14 +202,21 @@ export default function ReportFooterActions({
         </a>
 
         {hasReport && (
-          <button
-            onClick={handleRerun}
-            disabled={rerunning}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
-          >
-            <RefreshIcon spinning={rerunning} />
-            {rerunning ? "Re-running analysis…" : "Re-run with caseworker notes"}
-          </button>
+          <>
+            <button
+              onClick={handleRerun}
+              disabled={rerunning}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+            >
+              <RefreshIcon spinning={rerunning} />
+              {rerunning ? "Re-running analysis…" : "Re-run with caseworker notes"}
+            </button>
+
+            <JobDescriptionPanel
+              candidateId={candidateId}
+              printHref={`/dashboard/candidate/${candidateId}/print`}
+            />
+          </>
         )}
 
         {done && !rerunning && (

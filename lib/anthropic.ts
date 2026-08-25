@@ -4,10 +4,14 @@ import {
   buildSystemPrompt,
   buildUserMessage,
   buildRevisionMessage,
+  buildJobMatchMessage,
+  buildTailorMessage,
   type ResumeContext,
 } from "./prompt";
 import type {
   CandidateReport,
+  JobMatchResult,
+  JobTailorResult,
   NewcomerPathway,
   PathwayBridgingProgram,
   PathwayProvinceLicensing,
@@ -240,6 +244,66 @@ function normalizeComp(v: unknown) {
     median: Number.isFinite(median) ? median : undefined,
     region: c.region ? String(c.region) : undefined,
     note: c.note ? String(c.note) : undefined,
+  };
+}
+
+/** Match a candidate's skills against a pasted job description. */
+export async function matchJobDescription(
+  candidateSkills: { hard: string[]; soft: string[] },
+  jobDescription: string,
+): Promise<JobMatchResult> {
+  if (!anthropicApiKey) throw new Error("ANTHROPIC_API_KEY is not configured.");
+  const client = new Anthropic({ apiKey: anthropicApiKey });
+  const response = await client.messages.create({
+    model: anthropicModel,
+    max_tokens: 2000,
+    messages: [{ role: "user", content: buildJobMatchMessage(candidateSkills, jobDescription) }],
+  });
+  const raw = response.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+  const parsed = parseJson(raw) as Record<string, unknown>;
+  const asStrArr = (v: unknown): string[] =>
+    Array.isArray(v) ? (v as unknown[]).map(String) : [];
+  return {
+    matchedSkills: asStrArr(parsed.matchedSkills),
+    missingSkills: asStrArr(parsed.missingSkills),
+    bonusSkills: asStrArr(parsed.bonusSkills),
+  };
+}
+
+/** Generate resume + cover letter tips tailored to a specific job posting. */
+export async function tailorForJob(
+  candidateName: string,
+  careerStage: string,
+  topSkills: string[],
+  targetRoles: string[],
+  industries: string[],
+  jobDescription: string,
+): Promise<JobTailorResult> {
+  if (!anthropicApiKey) throw new Error("ANTHROPIC_API_KEY is not configured.");
+  const client = new Anthropic({ apiKey: anthropicApiKey });
+  const response = await client.messages.create({
+    model: anthropicModel,
+    max_tokens: 3000,
+    messages: [
+      {
+        role: "user",
+        content: buildTailorMessage(candidateName, careerStage, topSkills, targetRoles, industries, jobDescription),
+      },
+    ],
+  });
+  const raw = response.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+  const parsed = parseJson(raw) as Record<string, unknown>;
+  const asStrArr = (v: unknown): string[] =>
+    Array.isArray(v) ? (v as unknown[]).map(String) : [];
+  return {
+    resumeTips: asStrArr(parsed.resumeTips),
+    coverLetterTips: asStrArr(parsed.coverLetterTips),
   };
 }
 
