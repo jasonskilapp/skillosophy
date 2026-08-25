@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import TopBar from "@/components/TopBar";
-import CandidateProfile from "@/components/CandidateProfile";
+import CandidateProfile, { RecruiterNotes } from "@/components/CandidateProfile";
 import WorkflowStatusSelector from "@/components/WorkflowStatusSelector";
 import CandidateNotes from "@/components/CandidateNotes";
 import NewcomerPathwayPanel from "@/components/NewcomerPathway";
@@ -112,6 +112,13 @@ export default async function CandidateDetailPage({
         <CandidateNotes candidateId={id} initialNotes={generalNotes} />
         {isNewcomerOrg && (
           <NewcomerPathwayPanel candidateId={id} pathway={pathway} />
+        )}
+        {report && (
+          <RecruiterNotes
+            report={report}
+            candidateId={id}
+            notes={notesBySection["recruiter"] ?? []}
+          />
         )}
         <ReportFooterActions
           candidateId={id}

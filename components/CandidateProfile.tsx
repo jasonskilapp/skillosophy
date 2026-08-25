@@ -44,7 +44,6 @@ export default function CandidateProfile({
       {report.estimatesNote && (
         <p className="text-xs text-muted px-1">{report.estimatesNote}</p>
       )}
-      <RecruiterNotes report={report} candidateId={candidateId} notes={notesBySection["recruiter"] ?? []} />
     </div>
   );
 }
@@ -313,7 +312,7 @@ function NoteRow({ note }: { note: RecruiterNote }) {
   );
 }
 
-function RecruiterNotes({ report, candidateId, notes }: { report: CandidateReport; candidateId: string; notes: CandidateNote[] }) {
+export function RecruiterNotes({ report, candidateId, notes }: { report: CandidateReport; candidateId: string; notes: CandidateNote[] }) {
   if (!report.recruiterNotes?.length) return null;
   return (
     <details className="group">
