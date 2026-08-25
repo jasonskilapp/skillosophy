@@ -1,22 +1,22 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getCandidate, listCandidateNotes, getPathway } from "@/lib/data";
 import { formatDate, formatDateTime, compRange } from "@/lib/format";
-import type {
-  CandidateReport,
-  NewcomerPathway,
-  Skill,
-  Industry,
-  TargetRole,
-} from "@/lib/types";
+import PrintButton from "./PrintButton";
+import type { Industry, Skill, TargetRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Candidate Report — Skillosophy",
+};
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
 
 function Heading({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="mt-8 mb-3 border-b border-gray-300 pb-1 text-base font-bold uppercase tracking-widest text-gray-500 print:mt-6">
+    <h2 className="mt-8 mb-3 border-b border-gray-300 pb-1 text-base font-bold uppercase tracking-widest text-gray-500">
       {children}
     </h2>
   );
@@ -48,22 +48,12 @@ function IndustryBlock({ ind }: { ind: Industry }) {
     <div className="mb-3 rounded-lg border border-gray-200 p-3">
       <div className="flex flex-wrap items-start justify-between gap-1">
         <p className="text-sm font-semibold">{ind.name}</p>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-            ind.type === "Non-Traditional"
-              ? "bg-blue-50 text-blue-700"
-              : "bg-green-50 text-green-700"
-          }`}
-        >
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ind.type === "Non-Traditional" ? "bg-blue-50 text-blue-700" : "bg-green-50 text-green-700"}`}>
           {ind.type}
         </span>
       </div>
       <p className="mt-1 text-xs text-gray-600">{ind.whyItFits}</p>
-      {ind.comp && (
-        <p className="mt-1 text-xs text-gray-500">
-          Comp: {compRange(ind.comp)}
-        </p>
-      )}
+      {ind.comp && <p className="mt-1 text-xs text-gray-500">Comp: {compRange(ind.comp)}</p>}
     </div>
   );
 }
@@ -75,32 +65,7 @@ function RoleBlock({ role }: { role: TargetRole }) {
         <p className="text-sm font-semibold">{role.title}</p>
         <p className="mt-0.5 text-xs text-gray-600">{role.whySuited}</p>
       </div>
-      {role.comp && (
-        <p className="shrink-0 text-xs text-gray-500">{compRange(role.comp)}</p>
-      )}
-    </div>
-  );
-}
-
-function PathwaySection({
-  title,
-  children,
-  note,
-}: {
-  title: string;
-  children: React.ReactNode;
-  note?: string;
-}) {
-  return (
-    <div className="mb-5">
-      <SubHeading>{title}</SubHeading>
-      {children}
-      {note && (
-        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-          <p className="text-xs font-semibold text-amber-700">Caseworker note</p>
-          <p className="mt-0.5 text-xs text-amber-900 whitespace-pre-wrap">{note}</p>
-        </div>
-      )}
+      {role.comp && <p className="shrink-0 text-xs text-gray-500">{compRange(role.comp)}</p>}
     </div>
   );
 }
@@ -115,30 +80,11 @@ function Field({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
-// ── Print trigger (client island) ─────────────────────────────────────────────
-
-function PrintTrigger() {
+function NoteBox({ title, note }: { title?: string; note: string }) {
   return (
-    <div
-      className="mb-8 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 print:hidden"
-      suppressHydrationWarning
-    >
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `window.addEventListener('load', () => { window.print(); });`,
-        }}
-      />
-      <button
-        onClick={() =>
-          typeof window !== "undefined" && window.print()
-        }
-        className="rounded-md bg-gray-800 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
-      >
-        Save as PDF / Print
-      </button>
-      <span className="text-sm text-gray-500">
-        or close this tab to go back
-      </span>
+    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+      {title && <p className="text-xs font-semibold text-amber-700">{title}</p>}
+      <p className="mt-0.5 text-xs text-amber-900 whitespace-pre-wrap">{note}</p>
     </div>
   );
 }
@@ -171,22 +117,17 @@ export default async function PrintPage({
   const sectionNotes = pathway?.sectionNotes ?? {};
 
   return (
-    <html lang="en">
-      <head>
-        <title>{report.contact.name} — Skillosophy Report</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <style>{`
-          @media print {
-            @page { margin: 20mm 18mm; size: A4; }
-            body { font-size: 11px; }
-            .print\\:hidden { display: none !important; }
-            .print\\:mt-6 { margin-top: 1.5rem; }
-          }
-          body { font-family: system-ui, -apple-system, sans-serif; color: #111; background: #fff; }
-        `}</style>
-      </head>
-      <body className="mx-auto max-w-3xl px-6 py-8">
-        <PrintTrigger />
+    <>
+      <style>{`
+        @media print {
+          @page { margin: 20mm 18mm; size: A4; }
+          .print-hidden { display: none !important; }
+        }
+        body { font-family: system-ui, -apple-system, sans-serif; }
+      `}</style>
+
+      <div className="mx-auto max-w-3xl px-6 py-8 text-gray-900">
+        <PrintButton />
 
         {/* Header */}
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b-2 border-gray-800 pb-4">
@@ -294,9 +235,7 @@ export default async function PrintPage({
               {generalNotes.map((n) => (
                 <li key={n.id} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                   <p className="text-xs text-amber-900 whitespace-pre-wrap">{n.content}</p>
-                  {n.createdByName && (
-                    <p className="mt-1 text-xs text-amber-600">— {n.createdByName}</p>
-                  )}
+                  {n.createdByName && <p className="mt-1 text-xs text-amber-600">— {n.createdByName}</p>}
                 </li>
               ))}
             </ul>
@@ -309,31 +248,33 @@ export default async function PrintPage({
             <Heading>Newcomer Credential Pathway (Part 6)</Heading>
 
             {pathway.regulatoryStatus && (
-              <PathwaySection title="6A — Profession & Regulatory Status" note={sectionNotes["6a"]}>
+              <div className="mb-5">
+                <SubHeading>6A — Profession & Regulatory Status</SubHeading>
                 <Field label="Profession" value={pathway.regulatoryStatus.profession} />
                 <Field label="Country of training" value={pathway.regulatoryStatus.countryOfTraining} />
                 <Field label="Regulated in Canada" value={pathway.regulatoryStatus.regulatedStatus} />
                 <Field label="Target provinces" value={pathway.regulatoryStatus.targetProvinces.join(", ")} />
-              </PathwaySection>
+                {sectionNotes["6a"] && <NoteBox title="Caseworker note" note={sectionNotes["6a"]} />}
+              </div>
             )}
 
             {pathway.eca && (
-              <PathwaySection title="6B — Educational Credential Assessment" note={sectionNotes["6b"]}>
+              <div className="mb-5">
+                <SubHeading>6B — Educational Credential Assessment</SubHeading>
                 <Field label="Organization" value={pathway.eca.organization} />
                 <Field label="URL" value={pathway.eca.url} />
                 <Field label="Cost" value={pathway.eca.estimatedCostCAD} />
                 <Field label="Processing time" value={pathway.eca.processingTime} />
                 {pathway.eca.documentsRequired.length > 0 && (
-                  <div className="mb-1">
-                    <span className="text-xs font-semibold text-gray-500">Documents: </span>
-                    <span className="text-xs text-gray-800">{pathway.eca.documentsRequired.join(", ")}</span>
-                  </div>
+                  <Field label="Documents" value={pathway.eca.documentsRequired.join(", ")} />
                 )}
-              </PathwaySection>
+                {sectionNotes["6b"] && <NoteBox title="Caseworker note" note={sectionNotes["6b"]} />}
+              </div>
             )}
 
             {pathway.licensing.length > 0 && (
-              <PathwaySection title="6C — Licensing & Registration" note={sectionNotes["6c"]}>
+              <div className="mb-5">
+                <SubHeading>6C — Licensing & Registration</SubHeading>
                 {pathway.licensing.map((prov, i) => (
                   <div key={i} className="mb-3 rounded-lg border border-gray-200 p-3">
                     <p className="text-xs font-semibold text-gray-800">{prov.province}</p>
@@ -344,39 +285,42 @@ export default async function PrintPage({
                     <Field label="Annual renewal" value={prov.annualRenewal} />
                   </div>
                 ))}
-              </PathwaySection>
+                {sectionNotes["6c"] && <NoteBox title="Caseworker note" note={sectionNotes["6c"]} />}
+              </div>
             )}
 
             {pathway.language && (
-              <PathwaySection title="6D — Language Proficiency" note={sectionNotes["6d"]}>
+              <div className="mb-5">
+                <SubHeading>6D — Language Proficiency</SubHeading>
                 <Field label="Test" value={pathway.language.recommendedTest} />
                 <Field label="Minimum scores" value={pathway.language.minimumScores} />
                 <Field label="Fee" value={pathway.language.feeCAD} />
                 <Field label="Validity" value={pathway.language.validity} />
-                {pathway.language.exemptionNote && (
-                  <Field label="Exemption" value={pathway.language.exemptionNote} />
-                )}
-              </PathwaySection>
+                <Field label="Exemption" value={pathway.language.exemptionNote} />
+                {sectionNotes["6d"] && <NoteBox title="Caseworker note" note={sectionNotes["6d"]} />}
+              </div>
             )}
 
             {pathway.bridging && (
-              <PathwaySection title="6E — Bridging Programs" note={sectionNotes["6e"]}>
+              <div className="mb-5">
+                <SubHeading>6E — Bridging Programs</SubHeading>
                 <Field label="Required" value={pathway.bridging.required} />
                 {pathway.bridging.reason && <p className="text-xs text-gray-600 mb-2">{pathway.bridging.reason}</p>}
                 {pathway.bridging.programs.map((prog, i) => (
                   <div key={i} className="mb-2 rounded border border-gray-200 p-2">
                     <p className="text-xs font-semibold">{prog.name}</p>
                     <Field label="Institution" value={prog.institution} />
-                    <Field label="Province" value={prog.province} />
                     <Field label="Duration" value={prog.duration} />
                     <Field label="Cost" value={prog.costCAD} />
                   </div>
                 ))}
-              </PathwaySection>
+                {sectionNotes["6e"] && <NoteBox title="Caseworker note" note={sectionNotes["6e"]} />}
+              </div>
             )}
 
             {pathway.fullPath && (
-              <PathwaySection title="6F — Full Pathway Step by Step" note={sectionNotes["6f"]}>
+              <div className="mb-5">
+                <SubHeading>6F — Full Pathway Step by Step</SubHeading>
                 <div className="mb-3 flex flex-wrap gap-4 rounded-lg border border-gray-200 p-3 text-xs">
                   <span><strong>From:</strong> {pathway.fullPath.startingPoint}</span>
                   <span>→</span>
@@ -396,11 +340,13 @@ export default async function PrintPage({
                     </li>
                   ))}
                 </ol>
-              </PathwaySection>
+                {sectionNotes["6f"] && <NoteBox title="Caseworker note" note={sectionNotes["6f"]} />}
+              </div>
             )}
 
             {pathway.superiorRoles.length > 0 && (
-              <PathwaySection title="6G — Superior Role Pathway" note={sectionNotes["6g"]}>
+              <div className="mb-5">
+                <SubHeading>6G — Superior Role Pathway</SubHeading>
                 {pathway.superiorRoles.map((role, i) => (
                   <div key={i} className="mb-3 rounded-lg border border-gray-200 p-3">
                     <p className="text-xs font-semibold">{role.title}</p>
@@ -409,7 +355,8 @@ export default async function PrintPage({
                     <Field label="Superior role comp" value={role.superiorRoleComp} />
                   </div>
                 ))}
-              </PathwaySection>
+                {sectionNotes["6g"] && <NoteBox title="Caseworker note" note={sectionNotes["6g"]} />}
+              </div>
             )}
           </>
         )}
@@ -419,7 +366,7 @@ export default async function PrintPage({
           <p>Generated by Skillosophy · {new Date().toLocaleDateString("en-CA")}</p>
           <p className="mt-1">Compensation figures are model estimates based on Canadian market knowledge.</p>
         </div>
-      </body>
-    </html>
+      </div>
+    </>
   );
 }
