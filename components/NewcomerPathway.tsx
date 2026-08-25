@@ -964,17 +964,24 @@ function LicensingScenarioSection({
   data: LicensingScenarios | null;
   note: string;
 }) {
-  if (!data) return null;
   return (
     <details open className="group">
       <SectionHeading>7 — Licensing Pathway Scenarios</SectionHeading>
-      <p className="mb-4 text-sm text-muted">
-        Two realistic outcomes depending on how the credential assessment goes. Actual results depend on the regulator&apos;s decision.
-      </p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <ScenarioCard label="Scenario A — Lower complexity" scenario={data.scenarioA} accent="green" />
-        <ScenarioCard label="Scenario B — Additional requirements" scenario={data.scenarioB} accent="amber" />
-      </div>
+      {data ? (
+        <>
+          <p className="mb-4 text-sm text-muted">
+            Two realistic outcomes depending on how the credential assessment goes. Actual results depend on the regulator&apos;s decision.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ScenarioCard label="Scenario A — Lower complexity" scenario={data.scenarioA} accent="green" />
+            <ScenarioCard label="Scenario B — Additional requirements" scenario={data.scenarioB} accent="amber" />
+          </div>
+        </>
+      ) : (
+        <div className="rounded-xl border border-dashed border-border bg-surface p-6 text-center">
+          <p className="text-sm text-muted">Scenarios will be generated on the next analysis run.</p>
+        </div>
+      )}
       <SectionNotes candidateId={candidateId} sectionKey="7" initialNote={note} />
     </details>
   );
