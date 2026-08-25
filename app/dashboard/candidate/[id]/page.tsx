@@ -109,7 +109,6 @@ export default async function CandidateDetailPage({
           </div>
         )}
 
-        <CandidateNotes candidateId={id} initialNotes={generalNotes} />
         {isNewcomerOrg && (
           <NewcomerPathwayPanel candidateId={id} pathway={pathway} />
         )}
@@ -120,6 +119,7 @@ export default async function CandidateDetailPage({
             notes={notesBySection["recruiter"] ?? []}
           />
         )}
+        <CandidateNotes candidateId={id} initialNotes={generalNotes} />
         <ReportFooterActions
           candidateId={id}
           pendingReport={pendingReport}
