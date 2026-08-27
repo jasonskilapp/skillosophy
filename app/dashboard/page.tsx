@@ -61,7 +61,15 @@ export default async function DashboardPage({
               Resumes uploaded for {scope}, newest first.
             </p>
           </div>
-          <p className="text-sm text-muted">{displayed.length} total</p>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/upload"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              + Upload resume
+            </Link>
+            <p className="text-sm text-muted">{displayed.length} total</p>
+          </div>
         </div>
 
         {/* Tabs */}

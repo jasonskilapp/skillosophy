@@ -818,6 +818,83 @@ export async function submitResume(
 }
 
 // ---------------------------------------------------------------------------
+// Org member: upload a resume on behalf of a candidate
+// ---------------------------------------------------------------------------
+
+export async function uploadResumeAsCaseworker(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult & { candidateId?: string }> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+  if (!session.organizationId) {
+    return { error: "Your account is not linked to an organization." };
+  }
+
+  const file = formData.get("resume") as File | null;
+  if (!file || file.size === 0) return { error: "Please choose a file." };
+  if (!/\.(pdf|docx)$/i.test(file.name)) {
+    return { error: "Upload a PDF or Word (.docx) file." };
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return { error: "File is too large (max 10 MB)." };
+  }
+
+  const candidateName = (formData.get("candidateName") as string | null)?.trim() || null;
+
+  if (appMode === "mock") {
+    return {
+      ok: true,
+      message: "Demo mode: in a live setup the resume would be analyzed and added to your dashboard.",
+    };
+  }
+
+  const admin = createSupabaseAdminClient();
+
+  const path = `org-${session.organizationId}/${Date.now()}-${file.name}`;
+  const arrayBuffer = await file.arrayBuffer();
+  const { error: uploadError } = await admin.storage
+    .from(RESUME_BUCKET)
+    .upload(path, Buffer.from(arrayBuffer), {
+      contentType: file.type || undefined,
+      upsert: true,
+    });
+  if (uploadError) return { error: uploadError.message };
+
+  const { data: row, error: insertError } = await admin
+    .from("candidates")
+    .insert({
+      organization_id: session.organizationId,
+      recruiter_id: session.userId,
+      recruiter_name: session.name,
+      seeker_id: null,
+      invite_id: null,
+      name: candidateName,
+      email: null,
+      meeting_date: null,
+      file_path: path,
+      file_name: file.name,
+      status: "processing",
+    })
+    .select("id")
+    .single();
+  if (insertError || !row) {
+    return { error: insertError?.message ?? "Could not save the upload." };
+  }
+
+  const { after } = await import("next/server");
+  after(() => runAnalysis(row.id));
+
+  return {
+    ok: true,
+    candidateId: row.id,
+    message: "Resume uploaded — analysis is running.",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Org member: update candidate workflow status
 // ---------------------------------------------------------------------------
 
