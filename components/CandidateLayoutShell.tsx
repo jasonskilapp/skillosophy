@@ -297,7 +297,7 @@ export default function CandidateLayoutShell({
         {/* Right column — pathway, sticky */}
         {isNewcomerOrg && (
           <div
-            className="w-[480px] shrink-0 sticky top-6 max-h-[calc(100vh-5rem)] overflow-y-auto rounded-xl"
+            className="flex-1 min-w-0 sticky top-6 max-h-[calc(100vh-5rem)] overflow-y-auto rounded-xl"
             style={{ scrollbarWidth: "thin" }}
           >
             <NewcomerPathwayPanel candidateId={candidateId} pathway={pathway} />
