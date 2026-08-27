@@ -3,9 +3,15 @@ import { redirect } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import TeamInviteCreator from "@/components/TeamInviteCreator";
 import RoleSelector from "@/components/RoleSelector";
+import MemberMetricsTable from "@/components/MemberMetricsTable";
 import { getSession, orgLabels } from "@/lib/auth";
 import { appMode } from "@/lib/config";
-import { getOrganization, getSeatUsage, listTeamWithCandidateCounts } from "@/lib/data";
+import {
+  getOrganization,
+  getSeatUsage,
+  listTeamWithCandidateCounts,
+  listOrgMemberMetrics,
+} from "@/lib/data";
 import { formatDate, initials } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -21,9 +27,10 @@ export default async function TeamPage() {
   const labels = orgLabels(session.orgType);
   const org = await getOrganization(session.organizationId);
   const seatLimit = org?.seatLimit ?? 0;
-  const [team, usage] = await Promise.all([
+  const [team, usage, metrics] = await Promise.all([
     listTeamWithCandidateCounts(session.organizationId),
     getSeatUsage(session.organizationId, seatLimit),
+    listOrgMemberMetrics(session.organizationId),
   ]);
 
   // Don't show inactive members on the team page.
@@ -132,6 +139,10 @@ export default async function TeamPage() {
               </span>
             </div>
           ))}
+        </div>
+
+        <div className="mt-6">
+          <MemberMetricsTable metrics={metrics} linkToMember memberLabel={labels.member} />
         </div>
       </main>
     </>

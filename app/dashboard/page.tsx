@@ -4,8 +4,13 @@ import TopBar from "@/components/TopBar";
 import CandidateTile from "@/components/CandidateTile";
 import ArchivedCandidateTile from "@/components/ArchivedCandidateTile";
 import InviteCreator from "@/components/InviteCreator";
+import UsefulnessSurveyBanner from "@/components/UsefulnessSurveyBanner";
 import { getSession, orgLabels } from "@/lib/auth";
-import { listCandidatesForSession, listArchivedCandidatesForSession } from "@/lib/data";
+import {
+  listCandidatesForSession,
+  listArchivedCandidatesForSession,
+  getPendingSurveyMilestone,
+} from "@/lib/data";
 import { dayKey, dayLabel } from "@/lib/format";
 import type { CandidateSummary } from "@/lib/types";
 
@@ -24,9 +29,12 @@ export default async function DashboardPage({
   const showArchived = view === "archived";
 
   const labels = orgLabels(session.orgType);
-  const [candidates, archivedCandidates] = await Promise.all([
+  const [candidates, archivedCandidates, pendingMilestone] = await Promise.all([
     listCandidatesForSession(session),
     listArchivedCandidatesForSession(session),
+    session.organizationId
+      ? getPendingSurveyMilestone(session.organizationId, session.userId)
+      : Promise.resolve(null),
   ]);
 
   const displayed = showArchived ? archivedCandidates : candidates;
@@ -37,6 +45,13 @@ export default async function DashboardPage({
     <>
       <TopBar session={session} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+        {pendingMilestone && (
+          <UsefulnessSurveyBanner
+            userId={session.userId}
+            milestone={pendingMilestone}
+            orgType={session.orgType ?? null}
+          />
+        )}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">

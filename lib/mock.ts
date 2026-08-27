@@ -1,6 +1,7 @@
 import type {
   CandidateReport,
   CandidateSummary,
+  MemberMetrics,
   OrgSummary,
   TeamMember,
 } from "./types";
@@ -494,6 +495,27 @@ export const MOCK_ORGS: OrgSummary[] = [
     memberCount: 1,
     seatsUsed: 1,
     candidateCount: 0,
+  },
+];
+
+export const MOCK_MEMBER_METRICS: MemberMetrics[] = [
+  {
+    memberId: "demo-org-admin",
+    memberName: "Dana Whitfield",
+    resumesUploaded: 2,
+    appointmentsCompleted: 12,
+    followupsSent: 9,
+    followupsReplied: 6,
+    avgUsefulness: 4.3,
+  },
+  {
+    memberId: "demo-member",
+    memberName: "Omar Reyes",
+    resumesUploaded: 1,
+    appointmentsCompleted: 4,
+    followupsSent: 3,
+    followupsReplied: 1,
+    avgUsefulness: null,
   },
 ];
 

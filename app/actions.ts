@@ -9,14 +9,14 @@ import {
   getSession,
   homePathForSession,
 } from "@/lib/auth";
-import { getSeatUsage, suggestCustomerCode } from "@/lib/data";
+import { getSeatUsage, getPendingSurveyMilestone, suggestCustomerCode } from "@/lib/data";
 import {
   createSupabaseAdminClient,
   createSupabaseServerClient,
 } from "@/lib/supabase/server";
 import { runAnalysis } from "@/lib/pipeline";
 import { sendTeamInviteEmail, sendCandidateInviteEmail } from "@/lib/email";
-import type { CandidateReport, JobMatchResult, JobTailorResult, OrgRole, OrgType } from "@/lib/types";
+import type { CandidateReport, FollowupType, JobMatchResult, JobTailorResult, OrgRole, OrgType } from "@/lib/types";
 
 type ActionResult = {
   error?: string;
@@ -863,6 +863,214 @@ export async function updateCandidateWorkflowStatus(
     .eq("id", candidateId);
 
   if (error) return { error: error.message };
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Org member: mark an appointment complete (+ optional feedback)
+// ---------------------------------------------------------------------------
+
+/**
+ * appointment_completed_at is set once and never cleared — it's the sole
+ * authoritative signal metrics/survey-trigger queries rely on, independent of
+ * whatever workflow_status the advisor later selects in the dropdown.
+ */
+export async function markAppointmentComplete(
+  candidateId: string,
+  feedback?: {
+    usefulRating?: number | null;
+    timeSavedMin?: number | null;
+    appointmentNote?: string | null;
+  },
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id, appointment_completed_at")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) {
+    return { error: "Not authorized." };
+  }
+
+  const { error } = await admin
+    .from("candidates")
+    .update({
+      workflow_status: "appointment_completed",
+      appointment_completed_at: candidate.appointment_completed_at ?? new Date().toISOString(),
+      useful_rating: feedback?.usefulRating ?? null,
+      time_saved_min: feedback?.timeSavedMin ?? null,
+      appointment_note: feedback?.appointmentNote ?? null,
+    })
+    .eq("id", candidateId);
+
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath(`/dashboard/candidate/${candidateId}`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Org member: generate a follow-up link (requires a completed appointment)
+// ---------------------------------------------------------------------------
+
+export async function generateFollowupLink(
+  candidateId: string,
+  type: FollowupType,
+  content?: string,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member" || !session.organizationId) {
+    return { error: "Not authorized." };
+  }
+
+  const token = makeToken();
+
+  if (appMode === "mock") {
+    return { ok: true, token, message: "Demo follow-up link generated (not persisted without Supabase)." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id, appointment_completed_at")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) {
+    return { error: "Not authorized." };
+  }
+  if (!candidate.appointment_completed_at) {
+    return { error: "Mark the appointment complete first." };
+  }
+
+  const { error } = await admin.from("followups").insert({
+    candidate_id: candidateId,
+    organization_id: session.organizationId,
+    member_id: session.userId,
+    member_name: session.name,
+    type,
+    status: "sent",
+    token,
+    content: type === "next_steps" ? (content?.trim() || null) : null,
+    sent_at: new Date().toISOString(),
+  });
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath(`/dashboard/candidate/${candidateId}`);
+  return { ok: true, token, message: "Follow-up link generated." };
+}
+
+// ---------------------------------------------------------------------------
+// Public: submit a response to a follow-up link (no session — token-gated)
+// ---------------------------------------------------------------------------
+
+export async function submitFollowupResponse(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const token = String(formData.get("token") ?? "").trim();
+  if (!token) return { error: "Missing follow-up link." };
+
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+  const { data: followup } = await admin
+    .from("followups")
+    .select("id, status, type")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (!followup) return { error: "This link is invalid." };
+  if (followup.status === "responded") {
+    return { error: "This link has already been used." };
+  }
+
+  let response: Record<string, unknown> = { acknowledged: true };
+  if (followup.type === "self_report") {
+    response = {
+      applied: formData.get("applied") === "yes",
+      interviews: formData.get("interviews") === "yes",
+      aligned: formData.get("aligned") === "yes",
+      next_steps_clarity: Number(formData.get("next_steps_clarity") ?? 0) || null,
+    };
+  }
+
+  const { error } = await admin
+    .from("followups")
+    .update({ status: "responded", responded_at: new Date().toISOString(), response })
+    .eq("id", followup.id);
+
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Org member: submit the usefulness survey at a 10-appointment milestone
+// ---------------------------------------------------------------------------
+
+export async function submitUsefulnessSurvey(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member" || !session.organizationId) {
+    return { error: "Not authorized." };
+  }
+
+  const milestone = parseInt(String(formData.get("milestone") ?? ""), 10);
+  const usefulnessScore = parseInt(String(formData.get("usefulness") ?? ""), 10);
+  if (!Number.isFinite(milestone) || milestone <= 0) {
+    return { error: "Invalid survey milestone." };
+  }
+  if (!Number.isFinite(usefulnessScore) || usefulnessScore < 1 || usefulnessScore > 5) {
+    return { error: "A usefulness rating from 1–5 is required." };
+  }
+
+  if (appMode === "mock") return { ok: true };
+
+  // Re-validate the milestone is still legitimately pending before inserting.
+  const pending = await getPendingSurveyMilestone(session.organizationId, session.userId);
+  if (pending !== milestone) {
+    return { error: "This survey is no longer pending." };
+  }
+
+  const answers: Record<string, unknown> = {};
+  for (const [key, value] of formData.entries()) {
+    if (key === "milestone" || key === "usefulness") continue;
+    answers[key] = value;
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.from("survey_responses").insert({
+    organization_id: session.organizationId,
+    member_id: session.userId,
+    member_name: session.name,
+    milestone,
+    usefulness_score: usefulnessScore,
+    answers,
+  });
+
+  if (error) {
+    if (error.code === "23505") return { error: "You've already submitted this survey." };
+    return { error: error.message };
+  }
   return { ok: true };
 }
 

@@ -1,6 +1,7 @@
 import { appMode } from "./config";
 import {
   MOCK_CANDIDATES,
+  MOCK_MEMBER_METRICS,
   MOCK_ORGS,
   MOCK_ORG_ID,
   MOCK_REPORTS,
@@ -12,6 +13,9 @@ import type {
   CandidateNote,
   CandidateReport,
   CandidateSummary,
+  Followup,
+  FollowupType,
+  MemberMetrics,
   NewcomerPathway,
   NoteTag,
   OrgNote,
@@ -117,6 +121,10 @@ export async function getCandidate(
   report: CandidateReport | null;
   pendingReport: CandidateReport | null;
   pendingPathway: NewcomerPathway | null;
+  appointmentCompletedAt: string | null;
+  usefulRating: number | null;
+  timeSavedMin: number | null;
+  appointmentNote: string | null;
 } | null> {
   if (appMode === "mock") {
     const summary = MOCK_CANDIDATES.find((c) => c.id === id);
@@ -124,7 +132,16 @@ export async function getCandidate(
     if (session.orgRole === "member" && summary.ownerName !== session.name) {
       return null;
     }
-    return { summary, report: MOCK_REPORTS[id] ?? null, pendingReport: null, pendingPathway: null };
+    return {
+      summary,
+      report: MOCK_REPORTS[id] ?? null,
+      pendingReport: null,
+      pendingPathway: null,
+      appointmentCompletedAt: null,
+      usefulRating: null,
+      timeSavedMin: null,
+      appointmentNote: null,
+    };
   }
 
   if (!session.organizationId) return null;
@@ -132,7 +149,7 @@ export async function getCandidate(
   const { data, error } = await supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report, workflow_status, archived_at, pending_report, pending_pathway",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report, workflow_status, archived_at, pending_report, pending_pathway, appointment_completed_at, useful_rating, time_saved_min, appointment_note",
     )
     .eq("id", id)
     .single();
@@ -148,6 +165,10 @@ export async function getCandidate(
     report: (data.report as CandidateReport | null) ?? null,
     pendingReport: (data.pending_report as CandidateReport | null) ?? null,
     pendingPathway: (data.pending_pathway as NewcomerPathway | null) ?? null,
+    appointmentCompletedAt: data.appointment_completed_at ?? null,
+    usefulRating: data.useful_rating ?? null,
+    timeSavedMin: data.time_saved_min ?? null,
+    appointmentNote: data.appointment_note ?? null,
   };
 }
 
@@ -323,6 +344,240 @@ export async function getPathway(
     updatedAt: data.updated_at,
     updatedByName: data.updated_by_name ?? null,
     sectionNotes: (data.section_notes ?? {}) as Record<string, string>,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Follow-ups (org-scoped, visibility-tiered — same guard as listCandidateNotes)
+// ---------------------------------------------------------------------------
+
+export async function listFollowupsForCandidate(
+  candidateId: string,
+  session: Session,
+): Promise<Followup[]> {
+  if (appMode === "mock") return [];
+  if (!session.organizationId) return [];
+
+  const supabase = createSupabaseAdminClient();
+
+  const { data: candidate } = await supabase
+    .from("candidates")
+    .select("organization_id, recruiter_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) return [];
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) return [];
+
+  const { data, error } = await supabase
+    .from("followups")
+    .select(
+      "id, candidate_id, organization_id, member_id, member_name, type, status, token, content, sent_at, responded_at, response, created_at",
+    )
+    .eq("candidate_id", candidateId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(rowToFollowup);
+}
+
+export async function getFollowupByToken(
+  token: string,
+): Promise<
+  | (Followup & {
+      candidateName: string;
+      orgName: string | null;
+      orgType: OrgType | null;
+    })
+  | null
+> {
+  if (appMode === "mock") {
+    return {
+      id: "mock-followup",
+      candidateId: "jason-hall",
+      organizationId: MOCK_ORG_ID,
+      memberId: "demo-org-admin",
+      memberName: "Dana Whitfield",
+      type: "next_steps",
+      status: "sent",
+      token,
+      content: "Great meeting — apply to the Senior Application Support roles we discussed first.",
+      sentAt: new Date().toISOString(),
+      respondedAt: null,
+      response: null,
+      createdAt: new Date().toISOString(),
+      candidateName: "Jason Hall",
+      orgName: "UofT Career Centre",
+      orgType: "campus",
+    };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data } = await supabase
+    .from("followups")
+    .select(
+      "id, candidate_id, organization_id, member_id, member_name, type, status, token, content, sent_at, responded_at, response, created_at, candidates(name), organizations(name, type)",
+    )
+    .eq("token", token)
+    .maybeSingle();
+  if (!data) return null;
+
+  const candidate = data.candidates as { name: string } | { name: string }[] | null;
+  const candidateRecord = Array.isArray(candidate) ? (candidate[0] ?? null) : candidate;
+  const org = data.organizations as { name: string; type: OrgType } | { name: string; type: OrgType }[] | null;
+  const orgRecord = Array.isArray(org) ? (org[0] ?? null) : org;
+
+  return {
+    ...rowToFollowup(data),
+    candidateName: candidateRecord?.name ?? "",
+    orgName: orgRecord?.name ?? null,
+    orgType: orgRecord?.type ?? null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Metrics (org admin + platform admin drill-downs, and a member's own stats)
+// ---------------------------------------------------------------------------
+
+export async function listOrgMemberMetrics(orgId: string): Promise<MemberMetrics[]> {
+  if (appMode === "mock") return MOCK_MEMBER_METRICS;
+
+  const supabase = createSupabaseAdminClient();
+  const [{ data: members }, { data: candidateRows }, { data: followupRows }, { data: surveyRows }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .eq("organization_id", orgId)
+        .eq("account_type", "org_member"),
+      supabase
+        .from("candidates")
+        .select("recruiter_id, appointment_completed_at")
+        .eq("organization_id", orgId),
+      supabase
+        .from("followups")
+        .select("member_id, status")
+        .eq("organization_id", orgId),
+      supabase
+        .from("survey_responses")
+        .select("member_id, usefulness_score")
+        .eq("organization_id", orgId),
+    ]);
+
+  const resumeCounts = new Map<string, number>();
+  const completedCounts = new Map<string, number>();
+  for (const c of candidateRows ?? []) {
+    if (!c.recruiter_id) continue;
+    resumeCounts.set(c.recruiter_id, (resumeCounts.get(c.recruiter_id) ?? 0) + 1);
+    if (c.appointment_completed_at) {
+      completedCounts.set(c.recruiter_id, (completedCounts.get(c.recruiter_id) ?? 0) + 1);
+    }
+  }
+
+  const sentCounts = new Map<string, number>();
+  const repliedCounts = new Map<string, number>();
+  for (const f of followupRows ?? []) {
+    if (!f.member_id) continue;
+    if (f.status === "sent" || f.status === "responded") {
+      sentCounts.set(f.member_id, (sentCounts.get(f.member_id) ?? 0) + 1);
+    }
+    if (f.status === "responded") {
+      repliedCounts.set(f.member_id, (repliedCounts.get(f.member_id) ?? 0) + 1);
+    }
+  }
+
+  const usefulnessSums = new Map<string, { total: number; count: number }>();
+  for (const s of surveyRows ?? []) {
+    if (!s.member_id) continue;
+    const entry = usefulnessSums.get(s.member_id) ?? { total: 0, count: 0 };
+    entry.total += s.usefulness_score;
+    entry.count += 1;
+    usefulnessSums.set(s.member_id, entry);
+  }
+
+  return (members ?? []).map((m) => {
+    const usefulness = usefulnessSums.get(m.id);
+    return {
+      memberId: m.id,
+      memberName: m.full_name ?? m.email,
+      resumesUploaded: resumeCounts.get(m.id) ?? 0,
+      appointmentsCompleted: completedCounts.get(m.id) ?? 0,
+      followupsSent: sentCounts.get(m.id) ?? 0,
+      followupsReplied: repliedCounts.get(m.id) ?? 0,
+      avgUsefulness: usefulness ? usefulness.total / usefulness.count : null,
+    };
+  });
+}
+
+export async function getMemberMetrics(
+  orgId: string,
+  memberId: string,
+): Promise<MemberMetrics | null> {
+  const all = await listOrgMemberMetrics(orgId);
+  return all.find((m) => m.memberId === memberId) ?? null;
+}
+
+/**
+ * The latest 10-appointment milestone this member has crossed but not yet
+ * submitted a usefulness survey for, or null if none is pending. Only ever
+ * surfaces the latest crossed milestone — skipped ones are not backfilled.
+ */
+export async function getPendingSurveyMilestone(
+  orgId: string,
+  memberId: string,
+): Promise<number | null> {
+  if (appMode === "mock") return null;
+
+  const supabase = createSupabaseAdminClient();
+  const { count } = await supabase
+    .from("candidates")
+    .select("*", { count: "exact", head: true })
+    .eq("organization_id", orgId)
+    .eq("recruiter_id", memberId)
+    .not("appointment_completed_at", "is", null);
+
+  const milestone = Math.floor((count ?? 0) / 10) * 10;
+  if (milestone <= 0) return null;
+
+  const { data: existing } = await supabase
+    .from("survey_responses")
+    .select("id")
+    .eq("member_id", memberId)
+    .eq("milestone", milestone)
+    .maybeSingle();
+
+  return existing ? null : milestone;
+}
+
+function rowToFollowup(row: {
+  id: string;
+  candidate_id: string;
+  organization_id: string;
+  member_id: string | null;
+  member_name: string | null;
+  type: string;
+  status: string;
+  token: string;
+  content: string | null;
+  sent_at: string | null;
+  responded_at: string | null;
+  response: unknown;
+  created_at: string;
+}): Followup {
+  return {
+    id: row.id,
+    candidateId: row.candidate_id,
+    organizationId: row.organization_id,
+    memberId: row.member_id,
+    memberName: row.member_name,
+    type: row.type as FollowupType,
+    status: row.status as Followup["status"],
+    token: row.token,
+    content: row.content,
+    sentAt: row.sent_at,
+    respondedAt: row.responded_at,
+    response: (row.response as Record<string, unknown> | null) ?? null,
+    createdAt: row.created_at,
   };
 }
 

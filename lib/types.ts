@@ -390,3 +390,49 @@ export interface CandidateNote {
   createdByName: string | null;
   createdAt: string;
 }
+
+// ── Measurement & reporting ──────────────────────────────────────────────────
+
+export type FollowupType = "next_steps" | "self_report";
+export type FollowupStatus = "pending" | "sent" | "responded";
+
+/** A shareable link sent to a candidate after their appointment is completed. */
+export interface Followup {
+  id: string;
+  candidateId: string;
+  organizationId: string;
+  memberId: string | null;
+  memberName: string | null;
+  type: FollowupType;
+  status: FollowupStatus;
+  token: string;
+  /** Advisor-authored summary, next_steps only. */
+  content: string | null;
+  sentAt: string | null;
+  respondedAt: string | null;
+  response: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+/** A per-advisor usefulness survey submission at a 10-appointment milestone. */
+export interface SurveyResponse {
+  id: string;
+  organizationId: string;
+  memberId: string | null;
+  memberName: string | null;
+  milestone: number;
+  usefulnessScore: number;
+  answers: Record<string, unknown>;
+  createdAt: string;
+}
+
+/** Per-advisor rollup for the org-admin team page and the platform org drill-down. */
+export interface MemberMetrics {
+  memberId: string;
+  memberName: string;
+  resumesUploaded: number;
+  appointmentsCompleted: number;
+  followupsSent: number;
+  followupsReplied: number;
+  avgUsefulness: number | null;
+}

@@ -22,7 +22,13 @@
       "Read(//d/d/Discova/**)",
       "Bash(git add *)",
       "Bash(git -c commit.gpgsign=false commit -q -m 'Skillosophy: rename + multi-tenant org layer, customer codes, measurement plan *)",
-      "Bash(git remote *)"
+      "Bash(git remote *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(npm run *)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(taskkill //PID 55232 //F)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/login)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/followup/anytoken)"
     ]
   }
 }

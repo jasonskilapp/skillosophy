@@ -1,16 +1,9 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import TopBar from "@/components/TopBar";
-import CandidateProfile, { RecruiterNotes } from "@/components/CandidateProfile";
-import WorkflowStatusSelector from "@/components/WorkflowStatusSelector";
-import CandidateNotes from "@/components/CandidateNotes";
-import NewcomerPathwayPanel from "@/components/NewcomerPathway";
-import CandidateActions from "@/components/CandidateActions";
-import ReportFooterActions from "@/components/ReportFooterActions";
-import { ArrowLeftIcon, CalendarIcon, ClockIcon } from "@/components/icons";
+import CandidateLayoutShell from "@/components/CandidateLayoutShell";
 import { getSession, orgLabels } from "@/lib/auth";
-import { getCandidate, listCandidateNotes, getPathway } from "@/lib/data";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { getCandidate, listCandidateNotes, listFollowupsForCandidate, getPathway } from "@/lib/data";
+import type { CandidateNote, CandidateReport, NewcomerPathway } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -26,19 +19,22 @@ export default async function CandidateDetailPage({
   const { id } = await params;
   const isNewcomerOrg = session.orgType === "newcomer";
 
-  const [result, notes, pathway] = await Promise.all([
+  const [result, notes, pathway, followups] = await Promise.all([
     getCandidate(session, id),
     listCandidateNotes(id, session),
     isNewcomerOrg ? getPathway(id, session) : Promise.resolve(null),
+    listFollowupsForCandidate(id, session),
   ]);
   if (!result) notFound();
 
-  const { summary, report, pendingReport, pendingPathway } = result;
+  const { summary, report, pendingReport, pendingPathway, appointmentCompletedAt, usefulRating, timeSavedMin, appointmentNote } = result;
+  const typedReport = report as CandidateReport | null;
+  const typedPendingReport = pendingReport as CandidateReport | null;
+  const typedPendingPathway = pendingPathway as NewcomerPathway | null;
   const labels = orgLabels(session.orgType);
 
-  // Group notes by section; null/undefined section → "general" (bottom notes)
-  const notesBySection: Record<string, typeof notes> = {};
-  const generalNotes: typeof notes = [];
+  const notesBySection: Record<string, CandidateNote[]> = {};
+  const generalNotes: CandidateNote[] = [];
   for (const note of notes) {
     if (note.section) {
       (notesBySection[note.section] ??= []).push(note);
@@ -50,83 +46,26 @@ export default async function CandidateDetailPage({
   return (
     <>
       <TopBar session={session} />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
-        {/* Nav row */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition hover:text-foreground"
-          >
-            <ArrowLeftIcon className="h-4 w-4" />
-            Back to {labels.candidates.toLowerCase()}
-          </Link>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
-              <span className="inline-flex items-center gap-1.5">
-                <ClockIcon className="h-3.5 w-3.5" />
-                Uploaded {formatDateTime(summary.uploadedAt)}
-              </span>
-              {summary.meetingDate && (
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarIcon className="h-3.5 w-3.5" />
-                  {labels.meeting[0].toUpperCase() + labels.meeting.slice(1)}{" "}
-                  {formatDate(summary.meetingDate)}
-                </span>
-              )}
-            </div>
-            <CandidateActions
-              candidateId={id}
-              isAdmin={session.orgRole === "org_admin"}
-              isArchived={!!summary.archivedAt}
-            />
-          </div>
-        </div>
-
-        {/* Archived banner */}
-        {summary.archivedAt && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-            This profile is archived. Restore it to make it visible on the dashboard.
-          </div>
-        )}
-
-        {/* Workflow status bar */}
-        <div className="mb-6 flex items-center rounded-lg border border-border bg-surface px-4 py-3">
-          <WorkflowStatusSelector
-            candidateId={id}
-            currentStatus={summary.workflowStatus ?? null}
-          />
-        </div>
-
-        {report ? (
-          <CandidateProfile report={report} candidateId={id} notesBySection={notesBySection} isNewcomerOrg={isNewcomerOrg} />
-        ) : (
-          <div className="rounded-xl border border-border bg-surface p-10 text-center">
-            <p className="font-medium">Analysis not ready</p>
-            <p className="mt-1 text-sm text-muted">
-              This resume is still being analyzed, or analysis failed. Check
-              back shortly.
-            </p>
-          </div>
-        )}
-
-        {isNewcomerOrg && (
-          <NewcomerPathwayPanel candidateId={id} pathway={pathway} />
-        )}
-        {report && (
-          <RecruiterNotes
-            report={report}
-            candidateId={id}
-            notes={notesBySection["recruiter"] ?? []}
-          />
-        )}
-        <CandidateNotes candidateId={id} initialNotes={generalNotes} />
-        <ReportFooterActions
-          candidateId={id}
-          pendingReport={pendingReport}
-          pendingPathway={pendingPathway}
-          hasReport={!!report}
-        />
-      </main>
+      <CandidateLayoutShell
+        candidateId={id}
+        isNewcomerOrg={isNewcomerOrg}
+        isAdmin={session.orgRole === "org_admin"}
+        isArchived={!!summary.archivedAt}
+        backLabel={`Back to ${labels.candidates.toLowerCase()}`}
+        meetingLabel={labels.meeting[0].toUpperCase() + labels.meeting.slice(1)}
+        summary={summary}
+        report={typedReport}
+        pathway={pathway}
+        pendingReport={typedPendingReport}
+        pendingPathway={typedPendingPathway}
+        appointmentCompletedAt={appointmentCompletedAt}
+        usefulRating={usefulRating}
+        timeSavedMin={timeSavedMin}
+        appointmentNote={appointmentNote}
+        notesBySection={notesBySection}
+        generalNotes={generalNotes}
+        followups={followups}
+      />
     </>
   );
 }
