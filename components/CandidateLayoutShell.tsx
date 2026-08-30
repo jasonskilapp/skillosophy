@@ -13,6 +13,7 @@ import ReportFooterActions from "@/components/ReportFooterActions";
 import { ArrowLeftIcon, CalendarIcon, ClockIcon } from "@/components/icons";
 import { formatDate, formatDateTime } from "@/lib/format";
 import type {
+  AssessmentRecord,
   CandidateNote,
   CandidateReport,
   CandidateSummary,
@@ -72,6 +73,8 @@ interface Props {
   generalNotes: CandidateNote[];
   followups: Followup[];
   requirements: PathwayRequirement[];
+  assessments: AssessmentRecord[];
+  verifiedSkills: string[];
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -96,8 +99,11 @@ export default function CandidateLayoutShell({
   generalNotes,
   followups,
   requirements,
+  assessments,
+  verifiedSkills,
 }: Props) {
   const [layout, setLayout] = useState<Layout>("single");
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | "current">("current");
 
   // Read saved preference from sessionStorage once mounted
   useEffect(() => {
@@ -207,20 +213,59 @@ export default function CandidateLayoutShell({
     </div>
   );
 
-  const profileBlock = report ? (
-    <CandidateProfile
-      report={report}
-      candidateId={candidateId}
-      notesBySection={notesBySection}
-      isNewcomerOrg={isNewcomerOrg}
-    />
-  ) : (
-    <div className="rounded-xl border border-border bg-surface p-10 text-center">
-      <p className="font-medium">Analysis not ready</p>
-      <p className="mt-1 text-sm text-muted">
-        This resume is still being analyzed, or analysis failed. Check back shortly.
-      </p>
+  // Assessment tabs
+  const selectedAssessment = assessments.find((a) => a.id === selectedAssessmentId);
+  const activeReport = selectedAssessment ? selectedAssessment.report : report;
+  const isViewingHistory = selectedAssessmentId !== "current";
+
+  const assessmentTabs = assessments.length > 0 ? (
+    <div className="mb-4 flex items-center gap-1 overflow-x-auto border-b border-border">
+      <button
+        onClick={() => setSelectedAssessmentId("current")}
+        className={`shrink-0 px-4 pb-3 text-sm font-medium transition ${
+          !isViewingHistory ? "border-b-2 border-primary text-primary" : "text-muted hover:text-foreground"
+        }`}
+      >
+        Current
+      </button>
+      {[...assessments].reverse().map((a) => (
+        <button
+          key={a.id}
+          onClick={() => setSelectedAssessmentId(a.id)}
+          className={`shrink-0 px-4 pb-3 text-sm font-medium transition ${
+            selectedAssessmentId === a.id ? "border-b-2 border-primary text-primary" : "text-muted hover:text-foreground"
+          }`}
+        >
+          Assessment {a.assessmentNumber}
+          <span className="ml-1.5 text-xs font-normal text-muted">
+            {new Date(a.acceptedAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+          </span>
+        </button>
+      ))}
     </div>
+  ) : null;
+
+  const profileBlock = activeReport ? (
+    <>
+      {assessmentTabs}
+      <CandidateProfile
+        report={activeReport}
+        candidateId={candidateId}
+        notesBySection={isViewingHistory ? {} : notesBySection}
+        isNewcomerOrg={isNewcomerOrg}
+        verifiedSkills={isViewingHistory ? [] : verifiedSkills}
+      />
+    </>
+  ) : (
+    <>
+      {assessmentTabs}
+      <div className="rounded-xl border border-border bg-surface p-10 text-center">
+        <p className="font-medium">Analysis not ready</p>
+        <p className="mt-1 text-sm text-muted">
+          This resume is still being analyzed, or analysis failed. Check back shortly.
+        </p>
+      </div>
+    </>
   );
 
   const recruiterBlock = report && (

@@ -15,6 +15,8 @@ export interface ResumeContext {
   caseworkerNotes?: Record<string, string>;
   /** General caseworker notes (not tied to a section). */
   generalNotes?: { content: string; section: string | null }[];
+  /** Skill keys confirmed by the caseworker (e.g. "hard:Perioperative Nursing"). */
+  verifiedSkills?: string[];
 }
 
 // ── Parts 1–5 system prompt (unchanged from v7) ───────────────────────────────
@@ -368,12 +370,16 @@ export function buildRevisionMessage(
     .filter(Boolean)
     .join("\n\n");
 
+  const verifiedBlock = (ctx.verifiedSkills ?? []).length > 0
+    ? `\nVERIFIED SKILLS (confirmed by caseworker in the appointment — carry these forward exactly as listed, do not remove or downgrade them):\n${(ctx.verifiedSkills ?? []).map(k => `  - ${k.replace(/^(hard|soft):/, "")}`).join("\n")}\n`
+    : "";
+
   return `You previously produced the following resume analysis (JSON). The caseworker has reviewed it and added notes below. Revise the analysis taking these notes into account — correct any errors, incorporate additional context, and refine recommendations where the notes indicate a change is warranted. Maintain the exact same JSON structure.
 
 PREVIOUS ANALYSIS:
 ${JSON.stringify(existingReport, null, 2)}
 
 ${notesSection || "No caseworker notes provided."}
-
+${verifiedBlock}
 ${buildJsonInstructions(ctx.orgType)}`;
 }

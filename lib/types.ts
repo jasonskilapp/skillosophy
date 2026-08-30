@@ -342,6 +342,17 @@ export interface NewcomerPathway {
   sectionNotes: Record<string, string>;
 }
 
+/** One accepted re-analysis snapshot, for progression history. */
+export interface AssessmentRecord {
+  id: string;
+  candidateId: string;
+  assessmentNumber: number;
+  report: CandidateReport;
+  pathwaySnapshot: NewcomerPathway | null;
+  acceptedAt: string;
+  acceptedByName: string | null;
+}
+
 /** A timestamped note on an organization, written by a platform admin. */
 export interface OrgNote {
   id: string;

@@ -10,6 +10,7 @@ import {
 import { createSupabaseAdminClient } from "./supabase/server";
 import type { Session } from "./auth";
 import type {
+  AssessmentRecord,
   CandidateNote,
   CandidateReport,
   CandidateSummary,
@@ -126,6 +127,7 @@ export async function getCandidate(
   usefulRating: number | null;
   timeSavedMin: number | null;
   appointmentNote: string | null;
+  verifiedSkills: string[];
 } | null> {
   if (appMode === "mock") {
     const summary = MOCK_CANDIDATES.find((c) => c.id === id);
@@ -142,6 +144,7 @@ export async function getCandidate(
       usefulRating: null,
       timeSavedMin: null,
       appointmentNote: null,
+      verifiedSkills: [],
     };
   }
 
@@ -150,7 +153,7 @@ export async function getCandidate(
   const { data, error } = await supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report, workflow_status, archived_at, pending_report, pending_pathway, appointment_completed_at, useful_rating, time_saved_min, appointment_note",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report, workflow_status, archived_at, pending_report, pending_pathway, appointment_completed_at, useful_rating, time_saved_min, appointment_note, verified_skills",
     )
     .eq("id", id)
     .single();
@@ -170,6 +173,7 @@ export async function getCandidate(
     usefulRating: data.useful_rating ?? null,
     timeSavedMin: data.time_saved_min ?? null,
     appointmentNote: data.appointment_note ?? null,
+    verifiedSkills: (data.verified_skills as string[] | null) ?? [],
   };
 }
 
@@ -390,6 +394,46 @@ export async function getPathwayRequirements(
     sourceUrl: r.source_url ?? null,
     caseworkerNote: r.caseworker_note ?? null,
     updatedAt: r.updated_at,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Assessment history
+// ---------------------------------------------------------------------------
+
+export async function listAssessments(
+  candidateId: string,
+  session: Session,
+): Promise<AssessmentRecord[]> {
+  if (appMode === "mock") return [];
+  if (!session.organizationId) return [];
+
+  const supabase = createSupabaseAdminClient();
+
+  const { data: candidate } = await supabase
+    .from("candidates")
+    .select("organization_id, recruiter_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) return [];
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) return [];
+
+  const { data, error } = await supabase
+    .from("candidate_assessments")
+    .select("*")
+    .eq("candidate_id", candidateId)
+    .order("assessment_number", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    candidateId: r.candidate_id,
+    assessmentNumber: r.assessment_number,
+    report: r.report as CandidateReport,
+    pathwaySnapshot: (r.pathway_snapshot as NewcomerPathway | null) ?? null,
+    acceptedAt: r.accepted_at,
+    acceptedByName: r.accepted_by_name ?? null,
   }));
 }
 

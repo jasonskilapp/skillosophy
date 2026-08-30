@@ -2,8 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import CandidateLayoutShell from "@/components/CandidateLayoutShell";
 import { getSession, orgLabels } from "@/lib/auth";
-import { getCandidate, listCandidateNotes, listFollowupsForCandidate, getPathway, getPathwayRequirements } from "@/lib/data";
-import type { CandidateNote, CandidateReport, NewcomerPathway, PathwayRequirement } from "@/lib/types";
+import { getCandidate, listCandidateNotes, listFollowupsForCandidate, getPathway, getPathwayRequirements, listAssessments } from "@/lib/data";
+import type { AssessmentRecord, CandidateNote, CandidateReport, NewcomerPathway, PathwayRequirement } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,16 +19,17 @@ export default async function CandidateDetailPage({
   const { id } = await params;
   const isNewcomerOrg = session.orgType === "newcomer";
 
-  const [result, notes, pathway, followups, requirements] = await Promise.all([
+  const [result, notes, pathway, followups, requirements, assessments] = await Promise.all([
     getCandidate(session, id),
     listCandidateNotes(id, session),
     isNewcomerOrg ? getPathway(id, session) : Promise.resolve(null),
     listFollowupsForCandidate(id, session),
     isNewcomerOrg ? getPathwayRequirements(id, session) : Promise.resolve([] as PathwayRequirement[]),
+    listAssessments(id, session),
   ]);
   if (!result) notFound();
 
-  const { summary, report, pendingReport, pendingPathway, appointmentCompletedAt, usefulRating, timeSavedMin, appointmentNote } = result;
+  const { summary, report, pendingReport, pendingPathway, appointmentCompletedAt, usefulRating, timeSavedMin, appointmentNote, verifiedSkills } = result;
   const typedReport = report as CandidateReport | null;
   const typedPendingReport = pendingReport as CandidateReport | null;
   const typedPendingPathway = pendingPathway as NewcomerPathway | null;
@@ -67,6 +68,8 @@ export default async function CandidateDetailPage({
         generalNotes={generalNotes}
         followups={followups}
         requirements={requirements}
+        assessments={assessments}
+        verifiedSkills={verifiedSkills}
       />
     </>
   );

@@ -1384,6 +1384,48 @@ export async function updateRequirementStatus(
   return { ok: true };
 }
 
+// ── Verified Skills ───────────────────────────────────────────────────────────
+
+export async function toggleVerifiedSkill(
+  candidateId: string,
+  skillKey: string,
+  verified: boolean,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id, verified_skills")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) {
+    return { error: "Not authorized." };
+  }
+
+  const current: string[] = (candidate.verified_skills as string[] | null) ?? [];
+  const next = verified
+    ? Array.from(new Set([...current, skillKey]))
+    : current.filter((k) => k !== skillKey);
+
+  const { error } = await admin
+    .from("candidates")
+    .update({ verified_skills: next })
+    .eq("id", candidateId);
+
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
 // ── Re-run Analysis / Pending Report ─────────────────────────────────────────
 
 /**
@@ -1422,12 +1464,19 @@ export async function rerunAnalysis(candidateId: string): Promise<ActionResult> 
     admin.from("candidate_notes").select("content, section").eq("candidate_id", candidateId),
   ]);
 
+  const { data: candidateWithSkills } = await admin
+    .from("candidates")
+    .select("verified_skills")
+    .eq("id", candidateId)
+    .maybeSingle();
+
   const { analyzeFromExisting } = await import("@/lib/anthropic");
   const result = await analyzeFromExisting(candidate.report as CandidateReport, {
     name: candidate.name as string,
     orgType: session.orgType,
     caseworkerNotes: (pathway?.section_notes ?? {}) as Record<string, string>,
     generalNotes: (noteRows ?? []).map((n) => ({ content: n.content as string, section: n.section as string | null })),
+    verifiedSkills: (candidateWithSkills?.verified_skills as string[] | null) ?? [],
   });
 
   const { error } = await admin
@@ -1469,6 +1518,35 @@ export async function acceptPendingReport(candidateId: string): Promise<ActionRe
 
   const newReport = candidate.pending_report as CandidateReport;
   const newHeadline = (newReport?.contact?.headline as string | undefined) ?? null;
+
+  // Save assessment history — archive current report as #1 on first accept,
+  // then save new report as the next number.
+  const { count: existingCount } = await admin
+    .from("candidate_assessments")
+    .select("*", { count: "exact", head: true })
+    .eq("candidate_id", candidateId);
+
+  const currentCount = existingCount ?? 0;
+
+  if (currentCount === 0 && candidate.report) {
+    await admin.from("candidate_assessments").insert({
+      candidate_id: candidateId,
+      assessment_number: 1,
+      report: candidate.report,
+      pathway_snapshot: null,
+      accepted_at: new Date().toISOString(),
+      accepted_by_name: "Original analysis",
+    });
+  }
+
+  await admin.from("candidate_assessments").insert({
+    candidate_id: candidateId,
+    assessment_number: currentCount === 0 ? 2 : currentCount + 1,
+    report: candidate.pending_report,
+    pathway_snapshot: candidate.pending_pathway ?? null,
+    accepted_at: new Date().toISOString(),
+    accepted_by_name: session.name,
+  });
 
   const { error: updateErr } = await admin
     .from("candidates")

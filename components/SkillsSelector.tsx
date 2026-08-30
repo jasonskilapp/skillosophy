@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useTransition } from "react";
+import { toggleVerifiedSkill } from "@/app/actions";
 import type { Skill } from "@/lib/types";
 import { strengthMeta } from "@/lib/format";
 
@@ -21,7 +22,6 @@ function groupByStrength(skills: Skill[]): SkillGroup[] {
   }));
 }
 
-// Checkbox that supports indeterminate state via a ref callback
 function Checkbox({
   checked,
   indeterminate,
@@ -70,7 +70,6 @@ function StrengthGroup({
 
   return (
     <div>
-      {/* Group header with select-all */}
       <div className="mb-1.5 flex items-center justify-between border-b border-border pb-1">
         <span
           className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
@@ -88,7 +87,6 @@ function StrengthGroup({
         </label>
       </div>
 
-      {/* Individual skills */}
       <div className="divide-y divide-border">
         {group.skills.map((skill) => {
           const key = `${prefix}:${skill.name}`;
@@ -103,11 +101,13 @@ function StrengthGroup({
                 checked={isChecked}
                 onChange={() => onToggleSkill(key)}
               />
-              <span
-                className="text-sm font-medium"
-                title={skill.evidence ?? undefined}
-              >
+              <span className="flex items-center gap-1.5 text-sm font-medium" title={skill.evidence ?? undefined}>
                 {skill.name}
+                {isChecked && (
+                  <span className="rounded-full bg-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                    Verified
+                  </span>
+                )}
               </span>
               <span
                 className="justify-self-end rounded-full px-2.5 py-0.5 text-xs font-medium"
@@ -115,7 +115,6 @@ function StrengthGroup({
               >
                 {skill.strength}
               </span>
-              {/* Progress bar spans columns 2-3 */}
               <div className="col-span-2 col-start-2 h-1.5 w-full overflow-hidden rounded-full bg-track">
                 <div
                   className="h-full rounded-full transition-all"
@@ -154,7 +153,6 @@ function SkillCard({
 
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
-      {/* Card header with select-all */}
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
           {title}
@@ -188,11 +186,16 @@ function SkillCard({
 export default function SkillsSelector({
   hard,
   soft,
+  candidateId,
+  initialVerified,
 }: {
   hard: Skill[];
   soft: Skill[];
+  candidateId: string;
+  initialVerified: string[];
 }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set(initialVerified));
+  const [, startTransition] = useTransition();
 
   const hardGroups = groupByStrength(hard);
   const softGroups = groupByStrength(soft);
@@ -200,8 +203,12 @@ export default function SkillsSelector({
   function toggleSkill(key: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      const nowVerified = !next.has(key);
+      if (nowVerified) next.add(key);
+      else next.delete(key);
+      startTransition(async () => {
+        await toggleVerifiedSkill(candidateId, key, nowVerified);
+      });
       return next;
     });
   }
@@ -209,8 +216,17 @@ export default function SkillsSelector({
   function toggleGroup(keys: string[], allSelected: boolean) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allSelected) keys.forEach((k) => next.delete(k));
-      else keys.forEach((k) => next.add(k));
+      if (allSelected) {
+        keys.forEach((k) => next.delete(k));
+        startTransition(async () => {
+          await Promise.all(keys.map((k) => toggleVerifiedSkill(candidateId, k, false)));
+        });
+      } else {
+        keys.forEach((k) => next.add(k));
+        startTransition(async () => {
+          await Promise.all(keys.map((k) => toggleVerifiedSkill(candidateId, k, true)));
+        });
+      }
       return next;
     });
   }
@@ -221,7 +237,7 @@ export default function SkillsSelector({
     <div className="space-y-3">
       {count > 0 && (
         <div className="rounded-lg border border-primary bg-primary-soft px-4 py-2 text-sm font-medium text-primary">
-          {count} skill{count !== 1 ? "s" : ""} selected
+          {count} skill{count !== 1 ? "s" : ""} verified — carried forward in re-analysis
         </div>
       )}
       <div className="grid gap-4 md:grid-cols-2">

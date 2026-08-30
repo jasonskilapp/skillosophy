@@ -30,11 +30,13 @@ export default function CandidateProfile({
   candidateId,
   notesBySection,
   isNewcomerOrg,
+  verifiedSkills,
 }: {
   report: CandidateReport;
   candidateId: string;
   notesBySection: NotesBySection;
   isNewcomerOrg?: boolean;
+  verifiedSkills?: string[];
 }) {
   const traditionalIndustries = report.industries?.filter(i => i.type === "Traditional") ?? [];
   const alternativeIndustries = report.industries?.filter(i => i.type === "Non-Traditional") ?? [];
@@ -43,7 +45,7 @@ export default function CandidateProfile({
     <div className="space-y-7">
       <ProfileHeader report={report} />
       <StatCards report={report} />
-      <SkillsProfile report={report} candidateId={candidateId} notes={notesBySection["skills"] ?? []} />
+      <SkillsProfile report={report} candidateId={candidateId} notes={notesBySection["skills"] ?? []} verifiedSkills={verifiedSkills ?? []} />
       <IndustryFit industries={traditionalIndustries} candidateId={candidateId} notes={notesBySection["industry"] ?? []} />
       <AlternativeCareerPaths industries={alternativeIndustries} candidateId={candidateId} notes={notesBySection["alternative"] ?? []} />
       <TargetRoles report={report} candidateId={candidateId} notes={notesBySection["roles"] ?? []} isNewcomerOrg={isNewcomerOrg} />
@@ -157,13 +159,13 @@ function SkillCard({ title, skills }: { title: string; skills: Skill[] }) {
   );
 }
 
-function SkillsProfile({ report, candidateId, notes }: { report: CandidateReport; candidateId: string; notes: CandidateNote[] }) {
+function SkillsProfile({ report, candidateId, notes, verifiedSkills }: { report: CandidateReport; candidateId: string; notes: CandidateNote[]; verifiedSkills: string[] }) {
   return (
     <details open className="group">
       <SectionHeading icon={<SkillsIcon className="h-5 w-5" />}>
         Skills profile
       </SectionHeading>
-      <SkillsSelector hard={report.skills.hard} soft={report.skills.soft} />
+      <SkillsSelector hard={report.skills.hard} soft={report.skills.soft} candidateId={candidateId} initialVerified={verifiedSkills} />
       <SectionNotes candidateId={candidateId} section="skills" initialNotes={notes} />
     </details>
   );
