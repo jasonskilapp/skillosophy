@@ -1359,7 +1359,7 @@ export async function updateRequirementStatus(
     .eq("id", requirementId)
     .maybeSingle();
 
-  const cand = (req?.candidates as { organization_id: string; recruiter_id: string } | null);
+  const cand = (req?.candidates as unknown as { organization_id: string; recruiter_id: string } | null);
   if (!req || !cand || cand.organization_id !== session.organizationId) {
     return { error: "Not authorized." };
   }
