@@ -286,6 +286,42 @@ export interface LicensingScenario {
   keyFactors: string[];
 }
 
+// ── Pathway Requirements (trackable checklist) ───────────────────────────────
+
+export type RequirementStatus =
+  | "not_started"
+  | "in_progress"
+  | "waiting_external"
+  | "blocked"
+  | "complete"
+  | "not_applicable"
+  | "needs_review";
+
+export const REQUIREMENT_STATUS_LABELS: Record<RequirementStatus, string> = {
+  not_started: "Not started",
+  in_progress: "In progress",
+  waiting_external: "Waiting on external party",
+  blocked: "Blocked",
+  complete: "Complete",
+  not_applicable: "Not applicable",
+  needs_review: "Needs review",
+};
+
+export interface PathwayRequirement {
+  id: string;
+  candidateId: string;
+  sortOrder: number;
+  title: string;
+  description: string | null;
+  category: string | null;
+  status: RequirementStatus;
+  estimatedCostCad: string | null;
+  estimatedTimeline: string | null;
+  sourceUrl: string | null;
+  caseworkerNote: string | null;
+  updatedAt: string;
+}
+
 /** The full newcomer credential recognition & licensing pathway (Parts 6–7). */
 export interface NewcomerPathway {
   id: string;

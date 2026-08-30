@@ -2,8 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import CandidateLayoutShell from "@/components/CandidateLayoutShell";
 import { getSession, orgLabels } from "@/lib/auth";
-import { getCandidate, listCandidateNotes, listFollowupsForCandidate, getPathway } from "@/lib/data";
-import type { CandidateNote, CandidateReport, NewcomerPathway } from "@/lib/types";
+import { getCandidate, listCandidateNotes, listFollowupsForCandidate, getPathway, getPathwayRequirements } from "@/lib/data";
+import type { CandidateNote, CandidateReport, NewcomerPathway, PathwayRequirement } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +19,12 @@ export default async function CandidateDetailPage({
   const { id } = await params;
   const isNewcomerOrg = session.orgType === "newcomer";
 
-  const [result, notes, pathway, followups] = await Promise.all([
+  const [result, notes, pathway, followups, requirements] = await Promise.all([
     getCandidate(session, id),
     listCandidateNotes(id, session),
     isNewcomerOrg ? getPathway(id, session) : Promise.resolve(null),
     listFollowupsForCandidate(id, session),
+    isNewcomerOrg ? getPathwayRequirements(id, session) : Promise.resolve([] as PathwayRequirement[]),
   ]);
   if (!result) notFound();
 
@@ -65,6 +66,7 @@ export default async function CandidateDetailPage({
         notesBySection={notesBySection}
         generalNotes={generalNotes}
         followups={followups}
+        requirements={requirements}
       />
     </>
   );

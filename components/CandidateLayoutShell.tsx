@@ -18,6 +18,7 @@ import type {
   CandidateSummary,
   Followup,
   NewcomerPathway,
+  PathwayRequirement,
 } from "@/lib/types";
 
 type Layout = "single" | "sidebyside";
@@ -70,6 +71,7 @@ interface Props {
   notesBySection: Record<string, CandidateNote[]>;
   generalNotes: CandidateNote[];
   followups: Followup[];
+  requirements: PathwayRequirement[];
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -93,6 +95,7 @@ export default function CandidateLayoutShell({
   notesBySection,
   generalNotes,
   followups,
+  requirements,
 }: Props) {
   const [layout, setLayout] = useState<Layout>("single");
 
@@ -253,7 +256,7 @@ export default function CandidateLayoutShell({
   );
 
   const pathwayBlock = isNewcomerOrg && (
-    <NewcomerPathwayPanel candidateId={candidateId} pathway={pathway} />
+    <NewcomerPathwayPanel candidateId={candidateId} pathway={pathway} requirements={requirements} />
   );
 
   // ── Single column layout ───────────────────────────────────────────────────
@@ -300,7 +303,7 @@ export default function CandidateLayoutShell({
             className="flex-1 min-w-0 sticky top-6 max-h-[calc(100vh-5rem)] overflow-y-auto rounded-xl"
             style={{ scrollbarWidth: "thin" }}
           >
-            <NewcomerPathwayPanel candidateId={candidateId} pathway={pathway} />
+            <NewcomerPathwayPanel candidateId={candidateId} pathway={pathway} requirements={requirements} />
           </div>
         )}
       </div>

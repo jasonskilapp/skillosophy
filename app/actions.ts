@@ -1334,6 +1334,56 @@ export async function savePathwayNote(
   return { ok: true };
 }
 
+// ── Pathway Requirements ──────────────────────────────────────────────────────
+
+export async function updateRequirementStatus(
+  requirementId: string,
+  status: string,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+
+  const VALID = ["not_started","in_progress","waiting_external","blocked","complete","not_applicable","needs_review"];
+  if (!VALID.includes(status)) return { error: "Invalid status." };
+
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+
+  // Verify the requirement belongs to a candidate in this org.
+  const { data: req } = await admin
+    .from("pathway_requirements")
+    .select("id, candidate_id, candidates(organization_id, recruiter_id)")
+    .eq("id", requirementId)
+    .maybeSingle();
+
+  const cand = (req?.candidates as { organization_id: string; recruiter_id: string } | null);
+  if (!req || !cand || cand.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (session.orgRole === "member" && cand.recruiter_id !== session.userId) {
+    return { error: "Not authorized." };
+  }
+
+  const { error } = await admin
+    .from("pathway_requirements")
+    .update({
+      status,
+      caseworker_updated_at: new Date().toISOString(),
+      caseworker_updated_by: session.name,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", requirementId);
+
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath(`/dashboard/candidate/${req.candidate_id}`);
+  return { ok: true };
+}
+
 // ── Re-run Analysis / Pending Report ─────────────────────────────────────────
 
 /**

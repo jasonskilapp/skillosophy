@@ -18,6 +18,7 @@ import type {
   MemberMetrics,
   NewcomerPathway,
   NoteTag,
+  PathwayRequirement,
   OrgNote,
   OrgSummary,
   OrgType,
@@ -345,6 +346,51 @@ export async function getPathway(
     updatedByName: data.updated_by_name ?? null,
     sectionNotes: (data.section_notes ?? {}) as Record<string, string>,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Pathway Requirements
+// ---------------------------------------------------------------------------
+
+export async function getPathwayRequirements(
+  candidateId: string,
+  session: Session,
+): Promise<PathwayRequirement[]> {
+  if (appMode === "mock") return [];
+  if (!session.organizationId) return [];
+
+  const supabase = createSupabaseAdminClient();
+
+  const { data: candidate } = await supabase
+    .from("candidates")
+    .select("organization_id, recruiter_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) return [];
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) return [];
+
+  const { data, error } = await supabase
+    .from("pathway_requirements")
+    .select("*")
+    .eq("candidate_id", candidateId)
+    .order("sort_order", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    candidateId: r.candidate_id,
+    sortOrder: r.sort_order,
+    title: r.title,
+    description: r.description ?? null,
+    category: r.category ?? null,
+    status: r.status as PathwayRequirement["status"],
+    estimatedCostCad: r.estimated_cost_cad ?? null,
+    estimatedTimeline: r.estimated_timeline ?? null,
+    sourceUrl: r.source_url ?? null,
+    caseworkerNote: r.caseworker_note ?? null,
+    updatedAt: r.updated_at,
+  }));
 }
 
 // ---------------------------------------------------------------------------

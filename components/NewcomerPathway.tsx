@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useActionState, useEffect, useRef } from "react";
-import { savePathwaySection, savePathwayNote } from "@/app/actions";
+import { useState, useActionState, useEffect, useRef, useTransition } from "react";
+import { savePathwaySection, savePathwayNote, updateRequirementStatus } from "@/app/actions";
 import { ChevronDownIcon } from "./icons";
 import type {
   NewcomerPathway,
   PathwayBridgingProgram,
   PathwayProvinceLicensing,
+  PathwayRequirement,
   PathwayStep,
   PathwaySuperiorRole,
+  RequirementStatus,
 } from "@/lib/types";
+import { REQUIREMENT_STATUS_LABELS as STATUS_LABELS } from "@/lib/types";
 
 type ActionResult = { ok?: boolean; error?: string };
 
@@ -987,14 +990,108 @@ function LicensingScenarioSection({
   );
 }
 
+// ── Pathway Checklist ─────────────────────────────────────────────────────────
+
+const STATUS_COLORS: Record<RequirementStatus, string> = {
+  not_started:      "bg-surface-raised text-muted border border-border",
+  in_progress:      "bg-accent-blue-soft text-accent-blue border border-accent-blue/30",
+  waiting_external: "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/50",
+  blocked:          "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/50",
+  complete:         "bg-primary-soft text-primary border border-primary/30",
+  not_applicable:   "bg-surface text-muted border border-border",
+  needs_review:     "bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/20 dark:text-orange-400 dark:border-orange-900/50",
+};
+
+function RequirementRow({ req }: { req: PathwayRequirement }) {
+  const [status, setStatus] = useState<RequirementStatus>(req.status);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function handleChange(next: RequirementStatus) {
+    setStatus(next);
+    startTransition(async () => {
+      const result = await updateRequirementStatus(req.id, next);
+      if (result.error) {
+        setError(result.error);
+        setStatus(req.status);
+      } else {
+        setError(null);
+      }
+    });
+  }
+
+  const isNext = req.status !== "complete" && req.status !== "not_applicable";
+
+  return (
+    <li className={`flex items-start gap-3 rounded-xl border p-3.5 ${status === "complete" ? "border-border bg-surface opacity-70" : "border-border bg-surface"}`}>
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white mt-0.5">
+        {req.sortOrder + 1}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm font-medium ${status === "complete" ? "line-through text-muted" : ""}`}>
+          {req.title}
+        </p>
+        {(req.estimatedTimeline || req.estimatedCostCad) && (
+          <p className="mt-0.5 text-xs text-muted">
+            {[req.estimatedTimeline, req.estimatedCostCad].filter(Boolean).join(" · ")}
+          </p>
+        )}
+        {error && <p className="mt-1 text-xs text-rose-500">{error}</p>}
+      </div>
+      <select
+        value={status}
+        onChange={(e) => handleChange(e.target.value as RequirementStatus)}
+        disabled={isPending}
+        className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold cursor-pointer border focus:outline-none disabled:opacity-60 ${STATUS_COLORS[status]}`}
+      >
+        {(Object.keys(STATUS_LABELS) as RequirementStatus[]).map((s) => (
+          <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+        ))}
+      </select>
+    </li>
+  );
+}
+
+function PathwayChecklist({ requirements }: { requirements: PathwayRequirement[] }) {
+  if (requirements.length === 0) return null;
+
+  const nextStep = requirements.find(
+    (r) => r.status !== "complete" && r.status !== "not_applicable"
+  );
+
+  return (
+    <details open className="group">
+      <SectionHeading>Pathway Checklist</SectionHeading>
+      {nextStep && (
+        <div className="mb-4 rounded-xl border border-primary/30 bg-primary-soft px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">Next step</p>
+          <p className="mt-1 text-sm font-medium">{nextStep.title}</p>
+          {(nextStep.estimatedTimeline || nextStep.estimatedCostCad) && (
+            <p className="mt-0.5 text-xs text-primary/70">
+              {[nextStep.estimatedTimeline, nextStep.estimatedCostCad].filter(Boolean).join(" · ")}
+            </p>
+          )}
+        </div>
+      )}
+      <ul className="space-y-2">
+        {requirements.map((req) => (
+          <RequirementRow key={req.id} req={req} />
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export default function NewcomerPathwayPanel({
   candidateId,
   pathway,
+  requirements,
 }: {
   candidateId: string;
   pathway: NewcomerPathway | null;
+  requirements: PathwayRequirement[];
 }) {
   return (
     <div className="mt-8">
@@ -1010,6 +1107,7 @@ export default function NewcomerPathwayPanel({
         )}
       </div>
       <div className="space-y-4">
+        <PathwayChecklist requirements={requirements} />
         <RegulatoryStatusSection candidateId={candidateId} data={pathway?.regulatoryStatus ?? null} note={pathway?.sectionNotes?.["6a"] ?? ""} />
         <ECASection candidateId={candidateId} data={pathway?.eca ?? null} note={pathway?.sectionNotes?.["6b"] ?? ""} />
         <LicensingSection candidateId={candidateId} data={pathway?.licensing ?? []} note={pathway?.sectionNotes?.["6c"] ?? ""} />

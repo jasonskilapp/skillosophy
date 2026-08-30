@@ -79,6 +79,28 @@ export async function runAnalysis(candidateId: string): Promise<void> {
       );
     }
 
+    // Seed pathway requirement nodes from fullPath.steps — only if none exist yet
+    // (preserves any status updates a caseworker has already made).
+    if (pathway?.fullPath?.steps?.length) {
+      const { count } = await supabase
+        .from("pathway_requirements")
+        .select("*", { count: "exact", head: true })
+        .eq("candidate_id", candidateId);
+
+      if ((count ?? 0) === 0) {
+        const rows = pathway.fullPath.steps.map((step, i) => ({
+          candidate_id: candidateId,
+          sort_order: i,
+          title: step.action,
+          description: step.explanation || null,
+          estimated_cost_cad: step.costCAD || null,
+          estimated_timeline: step.timeline || null,
+          status: "not_started",
+        }));
+        await supabase.from("pathway_requirements").insert(rows);
+      }
+    }
+
     // Privacy requirement: delete the uploaded resume file immediately after
     // analysis. Only the de-identified structured report is retained.
     if (row.file_path) {
