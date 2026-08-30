@@ -1504,7 +1504,7 @@ export async function acceptPendingReport(candidateId: string): Promise<ActionRe
 
   const { data: candidate } = await admin
     .from("candidates")
-    .select("organization_id, recruiter_id, pending_report, pending_pathway, headline")
+    .select("organization_id, recruiter_id, report, pending_report, pending_pathway, headline")
     .eq("id", candidateId)
     .maybeSingle();
 
