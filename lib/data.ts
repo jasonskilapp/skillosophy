@@ -447,6 +447,86 @@ export async function listAssessments(
 }
 
 // ---------------------------------------------------------------------------
+// Client portal — fetch a candidate by the linked client_user_id
+// ---------------------------------------------------------------------------
+
+export async function getClientCandidate(userId: string): Promise<{
+  candidateId: string;
+  orgName: string;
+  report: CandidateReport | null;
+  pathway: NewcomerPathway | null;
+  requirements: PathwayRequirement[];
+} | null> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data: candidate } = await supabase
+    .from("candidates")
+    .select("id, report, organization_id, organizations(name)")
+    .eq("client_user_id", userId)
+    .maybeSingle();
+
+  if (!candidate) return null;
+
+  const org = candidate.organizations as { name: string } | { name: string }[] | null;
+  const orgRecord = Array.isArray(org) ? (org[0] ?? null) : org;
+
+  const [pathwayRes, reqRes] = await Promise.all([
+    supabase
+      .from("candidate_pathways")
+      .select("*")
+      .eq("candidate_id", candidate.id)
+      .maybeSingle(),
+    supabase
+      .from("pathway_requirements")
+      .select("*")
+      .eq("candidate_id", candidate.id)
+      .order("sort_order", { ascending: true }),
+  ]);
+
+  const pathway = pathwayRes.data
+    ? ({
+        id: pathwayRes.data.id,
+        candidateId: pathwayRes.data.candidate_id,
+        regulatoryStatus: pathwayRes.data.regulatory_status ?? null,
+        eca: pathwayRes.data.eca ?? null,
+        licensing: pathwayRes.data.licensing ?? [],
+        language: pathwayRes.data.language ?? null,
+        bridging: pathwayRes.data.bridging ?? null,
+        fullPath: pathwayRes.data.full_path ?? null,
+        superiorRoles: pathwayRes.data.superior_roles ?? [],
+        licensingScenarios: pathwayRes.data.licensing_scenarios ?? null,
+        aiGeneratedAt: pathwayRes.data.ai_generated_at ?? null,
+        updatedAt: pathwayRes.data.updated_at,
+        updatedByName: pathwayRes.data.updated_by_name ?? null,
+        sectionNotes: (pathwayRes.data.section_notes as Record<string, string>) ?? {},
+      } as NewcomerPathway)
+    : null;
+
+  const requirements: PathwayRequirement[] = (reqRes.data ?? []).map((r) => ({
+    id: r.id,
+    candidateId: r.candidate_id,
+    sortOrder: r.sort_order,
+    title: r.title,
+    description: r.description ?? null,
+    category: r.category ?? null,
+    status: r.status as PathwayRequirement["status"],
+    estimatedCostCad: r.estimated_cost_cad ?? null,
+    estimatedTimeline: r.estimated_timeline ?? null,
+    sourceUrl: r.source_url ?? null,
+    caseworkerNote: r.caseworker_note ?? null,
+    updatedAt: r.updated_at,
+  }));
+
+  return {
+    candidateId: candidate.id,
+    orgName: orgRecord?.name ?? "Your Organization",
+    report: (candidate.report as CandidateReport | null) ?? null,
+    pathway,
+    requirements,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Follow-ups (org-scoped, visibility-tiered — same guard as listCandidateNotes)
 // ---------------------------------------------------------------------------
 
