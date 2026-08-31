@@ -83,6 +83,45 @@ export async function sendCandidateInviteEmail({
   });
 }
 
+export async function sendClientPortalInviteEmail({
+  toEmail,
+  toName,
+  token,
+  orgName,
+}: {
+  toEmail: string;
+  toName: string;
+  token: string;
+  orgName: string;
+}) {
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "skillosophyapp.com";
+  const isProd = !rootDomain.includes("localhost");
+  const clientBase = isProd
+    ? `https://client.${rootDomain}`
+    : `http://client.localhost:3000`;
+  const claimUrl = `${clientBase}/invite?token=${token}`;
+
+  await transporter.sendMail({
+    from: FROM,
+    to: toEmail,
+    subject: `${orgName} has shared your pathway with you`,
+    html: `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1a2231;">
+        <h2 style="margin:0 0 8px;font-size:22px;">Your pathway is ready</h2>
+        <p style="margin:0 0 24px;color:#687387;">Hi ${toName}, your caseworker at <strong>${orgName}</strong> has prepared a personalized licensing pathway for you. Create your account to view it anytime.</p>
+        <a href="${claimUrl}" style="display:inline-block;background:#1f9d76;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:15px;">
+          View My Pathway
+        </a>
+        <p style="margin:24px 0 0;font-size:13px;color:#687387;">
+          Or copy this link into your browser:<br/>
+          <a href="${claimUrl}" style="color:#1f9d76;">${claimUrl}</a>
+        </p>
+        <p style="margin:16px 0 0;font-size:12px;color:#9aa5b4;">This link expires in 14 days.</p>
+      </div>
+    `,
+  });
+}
+
 export async function sendSuspendReviewEmail({
   toName,
   toEmail,

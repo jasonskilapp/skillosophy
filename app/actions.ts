@@ -15,7 +15,7 @@ import {
   createSupabaseServerClient,
 } from "@/lib/supabase/server";
 import { runAnalysis } from "@/lib/pipeline";
-import { sendTeamInviteEmail, sendCandidateInviteEmail } from "@/lib/email";
+import { sendTeamInviteEmail, sendCandidateInviteEmail, sendClientPortalInviteEmail } from "@/lib/email";
 import type { CandidateReport, FollowupType, JobMatchResult, JobTailorResult, OrgRole, OrgType } from "@/lib/types";
 
 type ActionResult = {
@@ -1758,5 +1758,109 @@ export async function deleteCandidate(
 
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// ── Client portal invite ──────────────────────────────────────────────────────
+
+export async function sendClientInvite(
+  candidateId: string,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") {
+    return { error: "Not authorized." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("id, organization_id, report, invite_claimed_at")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) {
+    return { error: "Not authorized." };
+  }
+  if (candidate.invite_claimed_at) {
+    return { error: "This client has already claimed their portal account." };
+  }
+
+  const report = candidate.report as CandidateReport | null;
+  const email = report?.contact?.email;
+  const name = report?.contact?.name;
+
+  if (!email) {
+    return { error: "No email found in this candidate's profile. Add their email and try again." };
+  }
+
+  const token = makeToken();
+  const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+
+  await admin
+    .from("candidates")
+    .update({ invite_token: token, invite_sent_at: new Date().toISOString(), invite_expires_at: expiresAt })
+    .eq("id", candidateId);
+
+  await sendClientPortalInviteEmail({
+    toEmail: email,
+    toName: name ?? email,
+    token,
+    orgName: session.organizationName ?? "your caseworker",
+  });
+
+  return { ok: true };
+}
+
+export async function claimClientInvite(
+  token: string,
+  password: string,
+): Promise<ActionResult> {
+  const admin = createSupabaseAdminClient();
+
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("id, report, invite_token, invite_claimed_at, invite_expires_at")
+    .eq("invite_token", token)
+    .maybeSingle();
+
+  if (!candidate) return { error: "Invalid or expired invite link." };
+  if (candidate.invite_claimed_at) return { error: "This invite has already been used." };
+  if (candidate.invite_expires_at && new Date(candidate.invite_expires_at) < new Date()) {
+    return { error: "This invite link has expired. Ask your caseworker to resend it." };
+  }
+
+  const report = candidate.report as CandidateReport | null;
+  const email = report?.contact?.email;
+  const name = report?.contact?.name;
+
+  if (!email) return { error: "No email found. Please contact your caseworker." };
+
+  const { data: authData, error: authError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: name ?? email },
+  });
+
+  if (authError || !authData.user) {
+    return { error: authError?.message ?? "Failed to create account. The email may already be registered." };
+  }
+
+  await admin.from("profiles").insert({
+    id: authData.user.id,
+    account_type: "seeker",
+    full_name: name ?? email,
+    email,
+  });
+
+  await admin
+    .from("candidates")
+    .update({
+      client_user_id: authData.user.id,
+      invite_claimed_at: new Date().toISOString(),
+      invite_token: null,
+    })
+    .eq("id", candidate.id);
+
   return { ok: true };
 }

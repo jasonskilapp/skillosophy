@@ -29,7 +29,7 @@ export default async function CandidateDetailPage({
   ]);
   if (!result) notFound();
 
-  const { summary, report, pendingReport, pendingPathway, appointmentCompletedAt, usefulRating, timeSavedMin, appointmentNote, verifiedSkills } = result;
+  const { summary, report, pendingReport, pendingPathway, appointmentCompletedAt, usefulRating, timeSavedMin, appointmentNote, verifiedSkills, inviteSentAt, inviteClaimedAt, clientUserId } = result;
   const typedReport = report as CandidateReport | null;
   const typedPendingReport = pendingReport as CandidateReport | null;
   const typedPendingPathway = pendingPathway as NewcomerPathway | null;
@@ -70,6 +70,9 @@ export default async function CandidateDetailPage({
         requirements={requirements}
         assessments={assessments}
         verifiedSkills={verifiedSkills}
+        inviteSentAt={inviteSentAt}
+        inviteClaimedAt={inviteClaimedAt}
+        clientUserId={clientUserId}
       />
     </>
   );

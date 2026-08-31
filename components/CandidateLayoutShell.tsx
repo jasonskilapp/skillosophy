@@ -10,6 +10,7 @@ import CandidateNotes from "@/components/CandidateNotes";
 import NewcomerPathwayPanel from "@/components/NewcomerPathway";
 import CandidateActions from "@/components/CandidateActions";
 import ReportFooterActions from "@/components/ReportFooterActions";
+import InviteClientButton from "@/components/InviteClientButton";
 import { ArrowLeftIcon, CalendarIcon, ClockIcon } from "@/components/icons";
 import { formatDate, formatDateTime } from "@/lib/format";
 import type {
@@ -75,6 +76,9 @@ interface Props {
   requirements: PathwayRequirement[];
   assessments: AssessmentRecord[];
   verifiedSkills: string[];
+  inviteSentAt: string | null;
+  inviteClaimedAt: string | null;
+  clientUserId: string | null;
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -101,6 +105,9 @@ export default function CandidateLayoutShell({
   requirements,
   assessments,
   verifiedSkills,
+  inviteSentAt,
+  inviteClaimedAt,
+  clientUserId,
 }: Props) {
   const [layout, setLayout] = useState<Layout>("single");
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | "current">("current");
@@ -175,6 +182,15 @@ export default function CandidateLayoutShell({
             <SideBySideIcon active={isSideBySide} />
           </button>
         </div>
+
+        {/* Client portal invite */}
+        {isNewcomerOrg && (
+          <InviteClientButton
+            candidateId={candidateId}
+            inviteSentAt={inviteSentAt}
+            inviteClaimedAt={inviteClaimedAt}
+          />
+        )}
 
         {/* Actions */}
         <CandidateActions

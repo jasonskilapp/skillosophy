@@ -128,6 +128,9 @@ export async function getCandidate(
   timeSavedMin: number | null;
   appointmentNote: string | null;
   verifiedSkills: string[];
+  inviteSentAt: string | null;
+  inviteClaimedAt: string | null;
+  clientUserId: string | null;
 } | null> {
   if (appMode === "mock") {
     const summary = MOCK_CANDIDATES.find((c) => c.id === id);
@@ -145,6 +148,9 @@ export async function getCandidate(
       timeSavedMin: null,
       appointmentNote: null,
       verifiedSkills: [],
+      inviteSentAt: null,
+      inviteClaimedAt: null,
+      clientUserId: null,
     };
   }
 
@@ -153,7 +159,7 @@ export async function getCandidate(
   const { data, error } = await supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report, workflow_status, archived_at, pending_report, pending_pathway, appointment_completed_at, useful_rating, time_saved_min, appointment_note, verified_skills",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, recruiter_id, report, workflow_status, archived_at, pending_report, pending_pathway, appointment_completed_at, useful_rating, time_saved_min, appointment_note, verified_skills, invite_sent_at, invite_claimed_at, client_user_id",
     )
     .eq("id", id)
     .single();
@@ -174,6 +180,9 @@ export async function getCandidate(
     timeSavedMin: data.time_saved_min ?? null,
     appointmentNote: data.appointment_note ?? null,
     verifiedSkills: (data.verified_skills as string[] | null) ?? [],
+    inviteSentAt: data.invite_sent_at ?? null,
+    inviteClaimedAt: data.invite_claimed_at ?? null,
+    clientUserId: data.client_user_id ?? null,
   };
 }
 
