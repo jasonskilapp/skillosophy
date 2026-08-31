@@ -9,7 +9,7 @@ import {
   getSession,
   homePathForSession,
 } from "@/lib/auth";
-import { getSeatUsage, getPendingSurveyMilestone, suggestCustomerCode } from "@/lib/data";
+import { getSeatUsage, getPendingSurveyMilestone, suggestCustomerCode, getOrgBySlug } from "@/lib/data";
 import {
   createSupabaseAdminClient,
   createSupabaseServerClient,
@@ -1861,6 +1861,60 @@ export async function claimClientInvite(
       invite_token: null,
     })
     .eq("id", candidate.id);
+
+  return { ok: true };
+}
+
+// ── Client self-registration ──────────────────────────────────────────────────
+
+export async function selfRegisterClient(
+  orgSlug: string,
+  fullName: string,
+  email: string,
+  password: string,
+  profession: string,
+  province: string,
+): Promise<ActionResult> {
+  const org = await getOrgBySlug(orgSlug);
+  if (!org) return { error: "Organization not found. Please check your registration link." };
+
+  const admin = createSupabaseAdminClient();
+
+  // Check email not already registered
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+  if (existing) return { error: "An account with this email already exists. Please sign in." };
+
+  const { data: authData, error: authError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
+  });
+
+  if (authError || !authData.user) {
+    return { error: authError?.message ?? "Failed to create account." };
+  }
+
+  await admin.from("profiles").insert({
+    id: authData.user.id,
+    account_type: "seeker",
+    full_name: fullName,
+    email,
+  });
+
+  // Create a minimal candidate row so the caseworker can see the intake
+  await admin.from("candidates").insert({
+    name: fullName,
+    organization_id: org.id,
+    client_user_id: authData.user.id,
+    status: "pending",
+    invite_claimed_at: new Date().toISOString(),
+    headline: `${profession}${province ? ` · ${province}` : ""}`,
+  });
 
   return { ok: true };
 }

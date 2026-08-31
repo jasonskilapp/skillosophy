@@ -447,6 +447,23 @@ export async function listAssessments(
 }
 
 // ---------------------------------------------------------------------------
+// Client portal — look up an org by slug (for self-registration)
+// ---------------------------------------------------------------------------
+
+export async function getOrgBySlug(
+  slug: string,
+): Promise<{ id: string; name: string; type: string } | null> {
+  const supabase = createSupabaseAdminClient();
+  const { data } = await supabase
+    .from("organizations")
+    .select("id, name, type")
+    .eq("slug", slug)
+    .eq("status", "active")
+    .maybeSingle();
+  return data ?? null;
+}
+
+// ---------------------------------------------------------------------------
 // Client portal — fetch a candidate by the linked client_user_id
 // ---------------------------------------------------------------------------
 
