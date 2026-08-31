@@ -447,6 +447,61 @@ export async function listAssessments(
 }
 
 // ---------------------------------------------------------------------------
+// Admin portal — org-level analytics
+// ---------------------------------------------------------------------------
+
+export async function getAdminAnalytics(orgId: string): Promise<{
+  totalClients: number;
+  byWorkflowStatus: Record<string, number>;
+  portalClaimed: number;
+  portalInvited: number;
+  requirementsByStatus: Record<string, number>;
+  totalRequirements: number;
+}> {
+  const supabase = createSupabaseAdminClient();
+
+  const [candidateRes, reqRes] = await Promise.all([
+    supabase
+      .from("candidates")
+      .select("workflow_status, client_user_id, invite_sent_at, invite_claimed_at")
+      .eq("organization_id", orgId)
+      .is("archived_at", null),
+    supabase
+      .from("pathway_requirements")
+      .select("status, candidates!inner(organization_id)")
+      .eq("candidates.organization_id", orgId),
+  ]);
+
+  const candidates = candidateRes.data ?? [];
+  const requirements = reqRes.data ?? [];
+
+  const byWorkflowStatus: Record<string, number> = {};
+  let portalClaimed = 0;
+  let portalInvited = 0;
+
+  for (const c of candidates) {
+    const ws = c.workflow_status ?? "no_status";
+    byWorkflowStatus[ws] = (byWorkflowStatus[ws] ?? 0) + 1;
+    if (c.invite_claimed_at) portalClaimed++;
+    else if (c.invite_sent_at) portalInvited++;
+  }
+
+  const requirementsByStatus: Record<string, number> = {};
+  for (const r of requirements) {
+    requirementsByStatus[r.status] = (requirementsByStatus[r.status] ?? 0) + 1;
+  }
+
+  return {
+    totalClients: candidates.length,
+    byWorkflowStatus,
+    portalClaimed,
+    portalInvited,
+    requirementsByStatus,
+    totalRequirements: requirements.length,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Client portal — look up an org by slug (for self-registration)
 // ---------------------------------------------------------------------------
 

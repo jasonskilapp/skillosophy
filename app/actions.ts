@@ -1918,3 +1918,15 @@ export async function selfRegisterClient(
 
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// Admin portal: suspend a team member via form action
+// ---------------------------------------------------------------------------
+
+export async function suspendMemberAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session?.organizationId) return;
+  const memberId = formData.get("memberId") as string;
+  if (!memberId) return;
+  await suspendOrgMember(session.organizationId, memberId);
+}
