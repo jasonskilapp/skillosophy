@@ -39,6 +39,7 @@ export default async function AdminTeamPage() {
   ]);
 
   const labels = orgLabels(session.orgType ?? null);
+  const memberLabel = labels.member;
 
   return (
     <main className="px-6 py-8">
@@ -53,7 +54,7 @@ export default async function AdminTeamPage() {
 
       {!seatUsage.full && (
         <div className="mb-6">
-          <TeamInviteCreator memberLabel={labels.memberSingular} />
+          <TeamInviteCreator memberLabel={memberLabel} />
         </div>
       )}
       {seatUsage.full && (
