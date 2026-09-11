@@ -54,7 +54,7 @@ export async function listCandidatesForSession(
   let query = supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status, archived_at",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status, archived_at, placement_start_date, placement_end_date, interview_date",
     )
     .eq("organization_id", session.organizationId)
     .is("archived_at", null)
@@ -81,7 +81,7 @@ export async function listCandidatesForMember(
   const { data, error } = await supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status, archived_at",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status, archived_at, placement_start_date, placement_end_date, interview_date",
     )
     .eq("organization_id", orgId)
     .eq("recruiter_id", recruiterId)
@@ -100,7 +100,7 @@ export async function listArchivedCandidatesForSession(
   let query = supabase
     .from("candidates")
     .select(
-      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status, archived_at",
+      "id, name, uploaded_at, meeting_date, status, headline, organization_id, recruiter_name, workflow_status, archived_at, placement_start_date, placement_end_date, interview_date",
     )
     .eq("organization_id", session.organizationId)
     .not("archived_at", "is", null)
@@ -1072,6 +1072,9 @@ type CandidateRow = {
   recruiter_name: string | null;
   workflow_status?: string | null;
   archived_at?: string | null;
+  placement_start_date?: string | null;
+  placement_end_date?: string | null;
+  interview_date?: string | null;
 };
 
 function rowToSummary(row: CandidateRow): CandidateSummary {
@@ -1086,6 +1089,9 @@ function rowToSummary(row: CandidateRow): CandidateSummary {
     ownerName: row.recruiter_name,
     workflowStatus: (row.workflow_status as WorkflowStatus | null) ?? null,
     archivedAt: row.archived_at ?? null,
+    placementStartDate: row.placement_start_date ?? null,
+    placementEndDate: row.placement_end_date ?? null,
+    interviewDate: row.interview_date ?? null,
   };
 }
 

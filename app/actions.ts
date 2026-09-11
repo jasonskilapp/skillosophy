@@ -899,10 +899,12 @@ export async function uploadResumeAsCaseworker(
 // ---------------------------------------------------------------------------
 
 const VALID_WORKFLOW_STATUSES = [
-  "intake_in_progress",
-  "appointment_scheduled",
-  "profile_reviewed",
-  "appointment_completed",
+  "intake",
+  "appointment_made",
+  "in_progress",
+  "upcoming_interviews",
+  "in_placement",
+  "placement_ending_soon",
 ] as const;
 
 export async function updateCandidateWorkflowStatus(
@@ -937,6 +939,41 @@ export async function updateCandidateWorkflowStatus(
   const { error } = await admin
     .from("candidates")
     .update({ workflow_status: status })
+    .eq("id", candidateId);
+
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+export async function updateCandidateDates(
+  candidateId: string,
+  dates: {
+    placementStartDate?: string | null;
+    placementEndDate?: string | null;
+    interviewDate?: string | null;
+  },
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.accountType !== "org_member") return { error: "Not authorized." };
+  if (appMode === "mock") return { ok: true };
+
+  const admin = createSupabaseAdminClient();
+  const { data: candidate } = await admin
+    .from("candidates")
+    .select("organization_id, recruiter_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate || candidate.organization_id !== session.organizationId) return { error: "Not authorized." };
+  if (session.orgRole === "member" && candidate.recruiter_id !== session.userId) return { error: "Not authorized." };
+
+  const { error } = await admin
+    .from("candidates")
+    .update({
+      placement_start_date: dates.placementStartDate ?? null,
+      placement_end_date: dates.placementEndDate ?? null,
+      interview_date: dates.interviewDate ?? null,
+    })
     .eq("id", candidateId);
 
   if (error) return { error: error.message };

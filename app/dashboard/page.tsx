@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import TopBar from "@/components/TopBar";
-import CandidateTile from "@/components/CandidateTile";
 import ArchivedCandidateTile from "@/components/ArchivedCandidateTile";
 import InviteCreator from "@/components/InviteCreator";
+import KanbanBoard from "@/components/KanbanBoard";
 import UsefulnessSurveyBanner from "@/components/UsefulnessSurveyBanner";
 import { getSession, orgLabels } from "@/lib/auth";
 import {
@@ -37,14 +37,12 @@ export default async function DashboardPage({
       : Promise.resolve(null),
   ]);
 
-  const displayed = showArchived ? archivedCandidates : candidates;
-  const groups = showArchived ? groupByDay(archivedCandidates) : groupByDay(candidates);
   const scope = session.orgRole === "org_admin" ? "your organization" : "you";
 
   return (
     <>
       <TopBar session={session} />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-8 sm:px-6">
         {pendingMilestone && (
           <UsefulnessSurveyBanner
             userId={session.userId}
@@ -52,13 +50,12 @@ export default async function DashboardPage({
             orgType={session.orgType ?? null}
           />
         )}
+
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {labels.candidates}
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight">{labels.candidates}</h1>
             <p className="mt-1 text-sm text-muted">
-              Resumes uploaded for {scope}, newest first.
+              {showArchived ? `Archived profiles for ${scope}.` : `Active ${labels.candidates.toLowerCase()} for ${scope}.`}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -68,7 +65,6 @@ export default async function DashboardPage({
             >
               + Upload resume
             </Link>
-            <p className="text-sm text-muted">{displayed.length} total</p>
           </div>
         </div>
 
@@ -77,9 +73,7 @@ export default async function DashboardPage({
           <Link
             href="/dashboard"
             className={`px-4 pb-3 text-sm font-medium transition ${
-              !showArchived
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted hover:text-foreground"
+              !showArchived ? "border-b-2 border-primary text-primary" : "text-muted hover:text-foreground"
             }`}
           >
             Active
@@ -90,9 +84,7 @@ export default async function DashboardPage({
           <Link
             href="/dashboard?view=archived"
             className={`px-4 pb-3 text-sm font-medium transition ${
-              showArchived
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted hover:text-foreground"
+              showArchived ? "border-b-2 border-primary text-primary" : "text-muted hover:text-foreground"
             }`}
           >
             Archived
@@ -105,39 +97,49 @@ export default async function DashboardPage({
         </div>
 
         {!showArchived && (
-          <div className="mb-8">
-            <InviteCreator candidateLabel={labels.candidate} />
-          </div>
+          <>
+            <div className="mb-6">
+              <InviteCreator candidateLabel={labels.candidate} />
+            </div>
+            {candidates.length === 0 ? (
+              <EmptyState candidateLabel={labels.candidate.toLowerCase()} />
+            ) : (
+              <KanbanBoard initialCandidates={candidates} />
+            )}
+          </>
         )}
 
-        {groups.length === 0 ? (
-          <EmptyState showArchived={showArchived} candidateLabel={labels.candidate.toLowerCase()} />
-        ) : (
-          <div className="space-y-8">
-            {groups.map((group) => (
-              <section key={group.key}>
-                <h2 className="mb-3 text-sm font-semibold text-muted">
-                  {group.label}
-                  <span className="ml-2 font-normal text-border-strong">
-                    {group.items.length}
-                  </span>
-                </h2>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.items.map((c) =>
-                    showArchived ? (
-                      <ArchivedCandidateTile
-                        key={c.id}
-                        candidate={c}
-                        isAdmin={session.orgRole === "org_admin"}
-                      />
-                    ) : (
-                      <CandidateTile key={c.id} candidate={c} />
-                    ),
-                  )}
-                </div>
-              </section>
-            ))}
-          </div>
+        {showArchived && (
+          <>
+            {archivedCandidates.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border-strong bg-surface p-10 text-center">
+                <p className="font-medium">No archived profiles</p>
+                <p className="mt-1 text-sm text-muted">
+                  Profiles you archive will appear here. You can restore or permanently delete them from the profile page.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {groupByDay(archivedCandidates).map((group) => (
+                  <section key={group.key}>
+                    <h2 className="mb-3 text-sm font-semibold text-muted">
+                      {group.label}
+                      <span className="ml-2 font-normal text-border-strong">{group.items.length}</span>
+                    </h2>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.items.map((c) => (
+                        <ArchivedCandidateTile
+                          key={c.id}
+                          candidate={c}
+                          isAdmin={session.orgRole === "org_admin"}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
     </>
@@ -153,37 +155,15 @@ function groupByDay(candidates: CandidateSummary[]) {
   }
   return Array.from(map.entries())
     .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-    .map(([key, items]) => ({
-      key,
-      label: dayLabel(items[0].uploadedAt),
-      items,
-    }));
+    .map(([key, items]) => ({ key, label: dayLabel(items[0].uploadedAt), items }));
 }
 
-function EmptyState({
-  showArchived,
-  candidateLabel,
-}: {
-  showArchived: boolean;
-  candidateLabel: string;
-}) {
-  if (showArchived) {
-    return (
-      <div className="rounded-xl border border-dashed border-border-strong bg-surface p-10 text-center">
-        <p className="font-medium">No archived profiles</p>
-        <p className="mt-1 text-sm text-muted">
-          Profiles you archive will appear here. You can restore or permanently
-          delete them from the profile page.
-        </p>
-      </div>
-    );
-  }
+function EmptyState({ candidateLabel }: { candidateLabel: string }) {
   return (
     <div className="rounded-xl border border-dashed border-border-strong bg-surface p-10 text-center">
       <p className="font-medium">No resumes yet</p>
       <p className="mt-1 text-sm text-muted">
-        Create an invite link above and send it to a {candidateLabel}. Their
-        profile appears here once they upload a resume.
+        Create an invite link above and send it to a {candidateLabel}. Their profile appears here once they upload a resume.
       </p>
     </div>
   );

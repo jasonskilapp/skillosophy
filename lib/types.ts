@@ -382,19 +382,29 @@ export interface CandidateSummary {
   workflowStatus?: WorkflowStatus | null;
   /** Set when the profile has been archived (soft-deleted). */
   archivedAt?: string | null;
+  /** Date the candidate started a placement. */
+  placementStartDate?: string | null;
+  /** Date the candidate's placement ends. */
+  placementEndDate?: string | null;
+  /** Date of the candidate's upcoming interview. */
+  interviewDate?: string | null;
 }
 
 export type WorkflowStatus =
-  | "intake_in_progress"
-  | "appointment_scheduled"
-  | "profile_reviewed"
-  | "appointment_completed";
+  | "intake"
+  | "appointment_made"
+  | "in_progress"
+  | "upcoming_interviews"
+  | "in_placement"
+  | "placement_ending_soon";
 
 export const WORKFLOW_STATUS_LABELS: Record<WorkflowStatus, string> = {
-  intake_in_progress: "Intake in progress",
-  appointment_scheduled: "Appointment scheduled",
-  profile_reviewed: "Profile reviewed",
-  appointment_completed: "Appointment completed",
+  intake: "Intake",
+  appointment_made: "Appointment Made",
+  in_progress: "In Progress",
+  upcoming_interviews: "Upcoming Interviews",
+  in_placement: "In Placement",
+  placement_ending_soon: "Placement Ending Soon",
 };
 
 export type NoteTag =
